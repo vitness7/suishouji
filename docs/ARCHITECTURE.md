@@ -47,7 +47,7 @@ Room DAO → SQLite
 
 `transactions` 同时预留 `relatedTransactionId`、`reimbursementState`、`deletedAt`，以后可以扩展退款/报销/同步，而不用破坏基础账单模型。
 
-当前 Room schema 为 v2。v1→v2 通过显式 `MIGRATION_1_2` 增加账单/预算关系约束和预算周期唯一索引；父记录使用 `@Upsert`，禁止用 `REPLACE` 更新带外键的数据。完整规则见 [数据完整性基线](DATA_INTEGRITY.md)。数据层已具备当前账本隔离能力，但多账本创建、选择和管理 UI 仍属于后续功能。
+当前 Room schema 为 v3。v1→v2 通过显式 `MIGRATION_1_2` 增加账单/预算关系约束和预算周期唯一索引；v2→v3 只把从未编辑的旧版 ¥5,000 演示预算恢复为 ¥0，不覆盖用户修改过的预算。父记录使用 `@Upsert`，禁止用 `REPLACE` 更新带外键的数据。完整规则见[数据完整性基线](DATA_INTEGRITY.md)。数据层已具备当前账本隔离能力，但多账本创建、选择和管理 UI 仍属于后续功能。
 
 ## 4. 工程边界
 
@@ -74,6 +74,8 @@ com.oneledger.app
 - 所有颜色都同时提供浅/深主题语义，次要文字仍满足可读对比度；图标必须有语义描述。
 
 ## 6. 迭代路线
+
+详细工作包及其 Git 分支见[实施路线图与分支地图](IMPLEMENTATION_ROADMAP.md)。
 
 ### v0.1 本地 MVP
 

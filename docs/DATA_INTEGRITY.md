@@ -1,6 +1,6 @@
 # OneLedger 数据完整性基线
 
-本文记录数据库 v2 起必须保持的约束，后续功能不得绕过这些边界。
+本文记录数据库 v2 起建立、并在当前 v3 中继续生效的约束，后续功能不得绕过这些边界。
 
 ## 账本隔离
 
@@ -17,13 +17,15 @@
 - 禁止使用 `INSERT OR REPLACE` 更新带外键的父记录；SQLite 的 REPLACE 可能先删除旧行，进而触发级联删除。
 - 账单保留稳定 ID；删除继续采用 `deletedAt` 软删除。
 
-## 数据库 v2
+## 数据库版本
 
 - `transactions.toAccountId` 和 `transactions.categoryId` 增加外键。
 - `budgets.categoryId` 增加外键。
 - 预算增加 `scopeKey`；总预算使用 `__TOTAL__`，分类预算使用分类 ID。
 - `(bookId, scopeKey, periodStart, periodEnd)` 唯一，保证同一账本同一周期只有一个相同作用域预算。
 - v1→v2 只能通过 `MIGRATION_1_2` 升级，禁止破坏式重建。
+- v2→v3 通过 `MIGRATION_2_3` 把未编辑的旧版 ¥5,000 演示预算恢复为 ¥0；用户编辑过的预算必须保留。
+- 新安装的默认总预算为 ¥0.00，不能用演示金额冒充用户设置。
 
 ## 聚合与计算
 

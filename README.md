@@ -46,7 +46,7 @@ OneLedger 是一款本地优先的 Android 个人记账应用，目前处于 v0.
 ## 技术基线
 
 - Kotlin + Jetpack Compose + Material 3
-- Room 2.8.4、数据库 schema v2（金额使用 `Long` 分值存储，避免浮点误差）
+- Room 2.8.4、数据库 schema v3（金额使用 `Long` 分值存储，避免浮点误差）
 - MVVM + Repository + 单向数据流
 - 单 Activity、按功能分包；业务稳定后再拆 Gradle 模块
 - API 23+，compile/target SDK 36
@@ -65,9 +65,9 @@ OneLedger 是一款本地优先的 Android 个人记账应用，目前处于 v0.
 - 深色与浅色设计系统、即时按压反馈、克制的选中态动效
 - 用户提供的 OneLedger 品牌图已接入页眉，启动图标使用同一蓝绿品牌语义重新绘制
 - 四个主页面、三个账本子页面、日历改选/未来月份、快速记账及表达式状态、账单编辑深浅主题与日期时间选择器的十四张 Compose 截图基准和像素回归测试
-- 数据地基：当前账本驱动的 DAO/Repository 隔离、安全 `Upsert`、账单/预算外键、预算周期唯一约束以及 v1→v2 显式迁移；多账本选择和管理 UI 尚未开放
+- 数据地基：当前账本驱动的 DAO/Repository 隔离、安全 `Upsert`、账单/预算外键、预算周期唯一约束以及 v1→v3 显式迁移；多账本选择和管理 UI 尚未开放
 
-项目开始、设计、开发与评审统一遵循 [项目规范中心](docs/README.md)；详细数据模型与工程边界见 [技术架构](docs/ARCHITECTURE.md)，数据库约束见 [数据完整性基线](docs/DATA_INTEGRITY.md)，参与开发见 [贡献指南](CONTRIBUTING.md)。
+项目开始、设计、开发与评审统一遵循[项目规范中心](docs/README.md)；当前完成度、后续工作包和分支顺序见[实施路线图](docs/IMPLEMENTATION_ROADMAP.md)；详细数据模型与工程边界见[技术架构](docs/ARCHITECTURE.md)，数据库约束见[数据完整性基线](docs/DATA_INTEGRITY.md)，参与开发见[贡献指南](CONTRIBUTING.md)。
 
 ## 运行
 
