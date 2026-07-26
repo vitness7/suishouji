@@ -73,6 +73,8 @@ Compose UI → immutable UiState → ViewModel → Repository → Room DAO → S
 
 优先级判断顺序：数据安全/错误 > 阻断记账 > 核心可理解性 > 性能与无障碍 > 新功能 > 装饰性视觉。
 
+具体工作包、分支名称、依赖关系和完成状态统一维护在[实施路线图与分支地图](IMPLEMENTATION_ROADMAP.md)，本节只保留版本级目标。
+
 | 阶段 | 目标 | 出口条件 |
 | --- | --- | --- |
 | v0.1 | 可长期使用的本地账本 | CRUD、预算、资产、统计、导出稳定 |
