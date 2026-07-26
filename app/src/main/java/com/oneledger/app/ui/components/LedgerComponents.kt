@@ -4,7 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,16 +45,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.oneledger.app.R
@@ -178,22 +176,18 @@ fun DetailHeader(
 
 @Composable
 fun BrandMark(modifier: Modifier = Modifier) {
-    val source = ImageBitmap.imageResource(R.drawable.oneledger_brand_source)
     Surface(
         modifier = modifier,
         color = Color.White,
         shape = RoundedCornerShape(11.dp),
         shadowElevation = 3.dp,
     ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawImage(
-                image = source,
-                srcOffset = IntOffset(570, 640),
-                srcSize = IntSize(315, 315),
-                dstOffset = IntOffset.Zero,
-                dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-            )
-        }
+        Image(
+            painter = painterResource(R.drawable.oneledger_brand_source),
+            contentDescription = "OneLedger",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
     }
 }
 
