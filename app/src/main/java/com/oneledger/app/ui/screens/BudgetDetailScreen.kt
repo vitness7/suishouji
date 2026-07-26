@@ -42,7 +42,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,6 +77,7 @@ import com.oneledger.app.util.MoneyFormatter
 import com.oneledger.app.util.MonthWindow
 import com.oneledger.app.util.isIn
 import com.oneledger.app.util.monthLabel
+import com.oneledger.app.util.shift
 
 private data class BudgetEditorTarget(
     val categoryId: String?,
@@ -91,9 +92,14 @@ fun BudgetDetailScreen(
     onSaveBudget: (MonthWindow, String?, Long) -> Unit,
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
+    initialMonthStart: Long = MonthWindow.current(nowMillis).start,
 ) {
-    var monthOffset by rememberSaveable { mutableIntStateOf(0) }
-    val monthWindow = remember(monthOffset, nowMillis) { MonthWindow.offset(monthOffset, nowMillis) }
+    var selectedMonthStart by rememberSaveable(initialMonthStart) {
+        mutableLongStateOf(initialMonthStart)
+    }
+    val monthWindow = remember(selectedMonthStart) {
+        MonthWindow.offset(monthOffset = 0, now = selectedMonthStart)
+    }
     val monthBudgets = state.budgets.filter { it.periodStart == monthWindow.start }
     val totalBudget = monthBudgets.firstOrNull { it.categoryId == null }
     var editorTarget by remember { mutableStateOf<BudgetEditorTarget?>(null) }
@@ -124,9 +130,8 @@ fun BudgetDetailScreen(
             item {
                 MonthNavigator(
                     label = monthWindow.monthLabel(),
-                    canMoveForward = monthOffset < 0,
-                    onPrevious = { monthOffset -= 1 },
-                    onNext = { monthOffset += 1 },
+                    onPrevious = { selectedMonthStart = monthWindow.shift(-1).start },
+                    onNext = { selectedMonthStart = monthWindow.shift(1).start },
                 )
             }
             item {
@@ -192,7 +197,6 @@ fun BudgetDetailScreen(
 @Composable
 private fun MonthNavigator(
     label: String,
-    canMoveForward: Boolean,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
 ) {
@@ -201,14 +205,14 @@ private fun MonthNavigator(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PeriodButton(Icons.Default.ChevronLeft, "上个月", true, onPrevious)
+            PeriodButton(Icons.Default.ChevronLeft, "上个月", onPrevious)
             Text(
                 text = label,
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center,
             )
-            PeriodButton(Icons.Default.ChevronRight, "下个月", canMoveForward, onNext)
+            PeriodButton(Icons.Default.ChevronRight, "下个月", onNext)
         }
     }
 }
@@ -217,12 +221,10 @@ private fun MonthNavigator(
 private fun PeriodButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
-    enabled: Boolean,
     onClick: () -> Unit,
 ) {
     PressableSurface(
         onClick = onClick,
-        enabled = enabled,
         modifier = Modifier.size(36.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(11.dp),
@@ -232,7 +234,7 @@ private fun PeriodButton(
                 icon,
                 contentDescription = description,
                 modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.28f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

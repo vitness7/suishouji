@@ -34,6 +34,11 @@ data class MonthWindow(
     }
 }
 
+fun MonthWindow.shift(months: Int): MonthWindow = MonthWindow.offset(
+    monthOffset = months,
+    now = start,
+)
+
 fun MonthWindow.remainingDayCount(now: Long): Long = when {
     now >= endExclusive -> 0
     now < start -> inclusiveLocalDayCount(start, endExclusive - 1)

@@ -20,10 +20,12 @@ import com.oneledger.app.domain.model.TransactionType
 import com.oneledger.app.ui.components.QuickAddPreviewSurface
 import com.oneledger.app.ui.components.AmountCalculatorState
 import com.oneledger.app.ui.components.TransactionDateTimePreviewSurface
+import com.oneledger.app.ui.screens.BudgetDetailScreen
 import com.oneledger.app.ui.screens.BudgetEditorPreviewSurface
 import com.oneledger.app.ui.screens.IncomeExpenseCalendarScreen
 import com.oneledger.app.ui.theme.OneLedgerTheme
 import com.oneledger.app.util.MonthWindow
+import com.oneledger.app.util.shift
 import java.util.Calendar
 
 private const val PHONE = "spec:width=393dp,height=852dp,dpi=440"
@@ -53,6 +55,23 @@ fun StatisticsScreenshot() = PreviewFrame(Destination.STATISTICS)
 @Preview(name = "预算详情 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
 @Composable
 fun BudgetDetailsScreenshot() = PreviewLedgerPage(LedgerPage.BUDGET)
+
+@PreviewTest
+@Preview(name = "预算详情 · 未来月份", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Composable
+fun BudgetDetailsFutureMonthScreenshot() {
+    OneLedgerTheme(darkTheme = true) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            BudgetDetailScreen(
+                state = previewState(),
+                onBack = {},
+                onSaveBudget = { _, _, _ -> },
+                nowMillis = PREVIEW_NOW,
+                initialMonthStart = MonthWindow.current(PREVIEW_NOW).shift(6).start,
+            )
+        }
+    }
+}
 
 @PreviewTest
 @Preview(name = "预算编辑 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)

@@ -42,6 +42,21 @@ class DateUtilsTest {
     }
 
     @Test
+    fun shiftMovesSelectedMonthForwardWithoutReturningToCurrentMonth() {
+        val july = Calendar.getInstance().apply {
+            set(2026, Calendar.JULY, 18, 12, 30, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val selected = MonthWindow.current(july).shift(7)
+        val start = Calendar.getInstance().apply { timeInMillis = selected.start }
+
+        assertEquals(2027, start.get(Calendar.YEAR))
+        assertEquals(Calendar.FEBRUARY, start.get(Calendar.MONTH))
+        assertEquals(1, start.get(Calendar.DAY_OF_MONTH))
+    }
+
+    @Test
     fun calendarGridStartsOnSundayAndAlwaysContainsSixWeeks() {
         val now = Calendar.getInstance().apply {
             set(2026, Calendar.JULY, 18, 12, 30, 0)

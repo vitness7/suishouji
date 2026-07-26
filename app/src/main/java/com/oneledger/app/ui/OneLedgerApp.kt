@@ -60,6 +60,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -382,6 +383,9 @@ private fun LedgerDestination(
     onBudgetSaved: (MonthWindow, String?, Long) -> Unit,
     nowMillis: Long,
 ) {
+    var budgetMonthStart by rememberSaveable {
+        mutableLongStateOf(MonthWindow.current(nowMillis).start)
+    }
     AnimatedContent(
         targetState = ledgerPage,
         transitionSpec = {
@@ -404,7 +408,10 @@ private fun LedgerDestination(
             LedgerPage.OVERVIEW -> LedgerScreen(
                 state = state,
                 nowMillis = nowMillis,
-                onBudgetClick = { onLedgerPageChanged(LedgerPage.BUDGET) },
+                onBudgetClick = { month ->
+                    budgetMonthStart = month.start
+                    onLedgerPageChanged(LedgerPage.BUDGET)
+                },
                 onCalendarClick = { onLedgerPageChanged(LedgerPage.CALENDAR) },
                 onTransactionClick = onTransactionClick,
             )
@@ -413,6 +420,7 @@ private fun LedgerDestination(
                 onBack = { onLedgerPageChanged(LedgerPage.OVERVIEW) },
                 onSaveBudget = onBudgetSaved,
                 nowMillis = nowMillis,
+                initialMonthStart = budgetMonthStart,
             )
             LedgerPage.CALENDAR -> IncomeExpenseCalendarScreen(
                 state = state,

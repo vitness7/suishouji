@@ -79,7 +79,7 @@ fun LedgerScreen(
     state: OneLedgerUiState,
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
-    onBudgetClick: () -> Unit = {},
+    onBudgetClick: (MonthWindow) -> Unit = {},
     onCalendarClick: () -> Unit = {},
     onTransactionClick: (String) -> Unit = {},
 ) {
@@ -174,7 +174,6 @@ fun LedgerScreen(
                 MonthButton(
                     icon = Icons.Default.ChevronRight,
                     description = "下个月",
-                    enabled = monthOffset < 0,
                     onClick = { monthOffset += 1 },
                 )
                 Spacer(Modifier.weight(1f))
@@ -197,7 +196,7 @@ fun LedgerScreen(
                 budget = monthBudget,
                 spentMinor = monthExpense,
                 remainingDays = monthWindow.remainingDayCount(nowMillis),
-                onClick = onBudgetClick,
+                onClick = { onBudgetClick(monthWindow) },
             )
         }
 
