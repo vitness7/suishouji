@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,19 +44,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.oneledger.app.R
 import com.oneledger.app.domain.model.AccountType
-import com.oneledger.app.ui.theme.BrandTeal
 import com.oneledger.app.ui.theme.OneLedgerMotion
 
 @Composable
@@ -98,31 +93,25 @@ fun PressableSurface(
 fun ScreenHeader(
     title: String,
     modifier: Modifier = Modifier,
-    eyebrow: String = "ONELEDGER",
     action: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp),
+            .height(48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BrandMark(Modifier.size(40.dp))
-        Column(
-            modifier = Modifier
-                .padding(start = 11.dp)
-                .weight(1f),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = eyebrow,
-                style = MaterialTheme.typography.labelLarge,
-                color = BrandTeal,
-                letterSpacing = 1.2.sp,
-                fontSize = 10.sp,
-            )
-            Text(text = title, style = MaterialTheme.typography.headlineMedium)
-        }
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
+                letterSpacing = (-0.35).sp,
+            ),
+            maxLines = 1,
+        )
         action?.invoke()
     }
 }
@@ -132,7 +121,6 @@ fun DetailHeader(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    eyebrow: String = "ONELEDGER",
     action: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -155,39 +143,18 @@ fun DetailHeader(
                 )
             }
         }
-        Column(
+        Text(
+            text = title,
             modifier = Modifier
                 .padding(start = 12.dp)
                 .weight(1f),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(
-                text = eyebrow,
-                style = MaterialTheme.typography.labelLarge,
-                color = BrandTeal,
-                letterSpacing = 1.2.sp,
-                fontSize = 10.sp,
-            )
-            Text(text = title, style = MaterialTheme.typography.headlineMedium)
-        }
-        action?.invoke()
-    }
-}
-
-@Composable
-fun BrandMark(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = Color.White,
-        shape = RoundedCornerShape(11.dp),
-        shadowElevation = 3.dp,
-    ) {
-        Image(
-            painter = painterResource(R.drawable.oneledger_brand_source),
-            contentDescription = "OneLedger",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.25).sp,
+            ),
+            maxLines = 1,
         )
+        action?.invoke()
     }
 }
 
