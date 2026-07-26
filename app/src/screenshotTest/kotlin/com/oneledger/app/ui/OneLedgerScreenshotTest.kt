@@ -1,13 +1,23 @@
 package com.oneledger.app.ui
 
 import android.content.res.Configuration
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.android.tools.screenshot.PreviewTest
+import com.oneledger.app.R
 import com.oneledger.app.data.local.AccountEntity
 import com.oneledger.app.data.local.AccountBalanceItem
 import com.oneledger.app.data.local.BudgetEntity
@@ -29,7 +39,51 @@ import com.oneledger.app.util.shift
 import java.util.Calendar
 
 private const val PHONE = "spec:width=393dp,height=852dp,dpi=440"
+private const val ICON_CANVAS = "spec:width=256dp,height=256dp,dpi=320"
 private const val PREVIEW_NOW = 1_784_379_780_000L
+
+@PreviewTest
+@Preview(name = "App Icon · 居中", device = ICON_CANVAS)
+@Composable
+fun AppIconCenteredScreenshot() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFE9EEF5)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            modifier = Modifier.size(192.dp),
+            shape = RoundedCornerShape(48.dp),
+            color = Color.White,
+            shadowElevation = 10.dp,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+@PreviewTest
+@Preview(name = "启动页标志 · 深色", device = ICON_CANVAS, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DarkSplashMarkScreenshot() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B0D10)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.splash_brand_mark),
+            contentDescription = null,
+            modifier = Modifier.size(192.dp),
+        )
+    }
+}
 
 @PreviewTest
 @Preview(name = "账本 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)

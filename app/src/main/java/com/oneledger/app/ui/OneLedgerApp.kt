@@ -91,8 +91,8 @@ import com.oneledger.app.ui.screens.LedgerScreen
 import com.oneledger.app.ui.screens.SavingsScreen
 import com.oneledger.app.ui.screens.StatisticsScreen
 import com.oneledger.app.ui.theme.BrandBlue
+import com.oneledger.app.ui.theme.BrandBlueDeep
 import com.oneledger.app.ui.theme.BrandBlueLight
-import com.oneledger.app.ui.theme.BrandTeal
 import com.oneledger.app.ui.theme.OneLedgerMotion
 import com.oneledger.app.util.MonthWindow
 import kotlinx.coroutines.launch
@@ -438,7 +438,7 @@ private fun LiquidGlassAddButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(19.dp)
+    val shape = RoundedCornerShape(18.dp)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -461,8 +461,8 @@ private fun LiquidGlassAddButton(
             .scale(scale),
         shape = shape,
         color = Color.Transparent,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.32f)),
-        shadowElevation = 14.dp,
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.38f)),
+        shadowElevation = 16.dp,
     ) {
         Box(
             modifier = Modifier
@@ -470,9 +470,9 @@ private fun LiquidGlassAddButton(
                 .background(
                     brush = Brush.linearGradient(
                         listOf(
-                            BrandBlueLight.copy(alpha = 0.88f),
-                            BrandBlue.copy(alpha = 0.94f),
-                            BrandTeal.copy(alpha = 0.68f),
+                            BrandBlueLight.copy(alpha = 0.92f),
+                            BrandBlue,
+                            BrandBlueDeep,
                         ),
                     ),
                     shape = shape,
@@ -488,15 +488,20 @@ private fun LiquidGlassAddButton(
                         Brush.verticalGradient(
                             listOf(Color.White.copy(alpha = 0.28f), Color.Transparent),
                         ),
-                        RoundedCornerShape(topStart = 19.dp, topEnd = 19.dp),
+                        RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
                     ),
             )
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 8.dp, bottom = 7.dp)
-                    .size(10.dp)
-                    .background(Color.White.copy(alpha = 0.16f), CircleShape),
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, BrandBlueDeep.copy(alpha = 0.34f)),
+                        ),
+                        RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp),
+                    ),
             )
             Icon(
                 Icons.Default.Add,

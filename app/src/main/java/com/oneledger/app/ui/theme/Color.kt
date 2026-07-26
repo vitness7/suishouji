@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 val BrandBlue = Color(0xFF145CC4)
 val BrandBlueLight = Color(0xFF75A4FF)
+val BrandBlueDeep = Color(0xFF073B7A)
 val BrandTeal = Color(0xFF10B7B4)
 val ExpenseCoral = Color(0xFFFF6B5F)
 val IncomeMint = Color(0xFF57D3A2)
