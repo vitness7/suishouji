@@ -3,13 +3,13 @@ package com.oneledger.app.ui.components
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
@@ -304,8 +304,8 @@ private fun QuickAddContent(
     var selectedCategoryId by rememberSaveable(editKey) {
         mutableStateOf(
             initialTransaction?.categoryId ?: when (initialType) {
-                TransactionType.EXPENSE -> expenseCategories.firstOrNull()?.id
-                TransactionType.INCOME -> incomeCategories.firstOrNull()?.id
+                TransactionType.EXPENSE -> firstQuickAddRootCategoryId(expenseCategories)
+                TransactionType.INCOME -> firstQuickAddRootCategoryId(incomeCategories)
                 else -> null
             },
         )
@@ -430,7 +430,7 @@ private fun QuickAddContent(
 
     LaunchedEffect(type, categories) {
         if (type != TransactionType.TRANSFER && categories.none { it.id == selectedCategoryId }) {
-            selectedCategoryId = categories.firstOrNull()?.id
+            selectedCategoryId = firstQuickAddRootCategoryId(categories)
         }
     }
     LaunchedEffect(type) {
@@ -484,6 +484,10 @@ private fun QuickAddContent(
             calculatorState = AmountCalculatorState()
             note = ""
             occurredAt = nowMillis
+            if (type == TransactionType.EXPENSE) {
+                selectedCategoryId = firstQuickAddRootCategoryId(expenseCategories)
+                expandedCategoryId = null
+            }
         }
     }
 
@@ -803,21 +807,39 @@ private fun CategoryGrid(
                 }
 
                 val expandedInRow = row.firstOrNull { it.id == expandedCategoryId }
-                AnimatedVisibility(
-                    visible = expandedInRow != null,
-                    enter = expandVertically(
-                        animationSpec = tween(OneLedgerMotion.ContentEnterMillis),
-                        expandFrom = Alignment.Top,
-                    ) + fadeIn(tween(OneLedgerMotion.ContentEnterMillis)),
-                    exit = shrinkVertically(
-                        animationSpec = tween(OneLedgerMotion.ContentExitMillis),
-                        shrinkTowards = Alignment.Top,
-                    ) + fadeOut(tween(OneLedgerMotion.ContentExitMillis)),
+                AnimatedContent(
+                    targetState = expandedInRow,
+                    transitionSpec = {
+                        val symmetricDuration = OneLedgerMotion.ContentEnterMillis
+                        val enter = fadeIn(
+                            animationSpec = tween(
+                                durationMillis = symmetricDuration,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                        val exit = fadeOut(
+                            animationSpec = tween(
+                                durationMillis = symmetricDuration,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                        (enter togetherWith exit) using SizeTransform(
+                            clip = true,
+                            sizeAnimationSpec = { _, _ ->
+                                tween(
+                                    durationMillis = symmetricDuration,
+                                    easing = FastOutSlowInEasing,
+                                )
+                            },
+                        )
+                    },
+                    contentAlignment = Alignment.TopStart,
+                    contentKey = { it?.id },
                     label = "quick-add-subcategories",
-                ) {
-                    expandedInRow?.let { parent ->
+                ) { parent ->
+                    parent?.let {
                         SubcategoryPanel(
-                            categories = tree.childrenOf(parent.id),
+                            categories = tree.childrenOf(it.id),
                             selectedCategoryId = selectedCategoryId,
                             accent = accent,
                             onSelected = onSelected,

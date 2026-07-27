@@ -81,6 +81,9 @@ internal fun quickAddCategoryTree(categories: List<CategoryEntity>): QuickAddCat
     return QuickAddCategoryTree(roots = roots, childrenByParent = children)
 }
 
+internal fun firstQuickAddRootCategoryId(categories: List<CategoryEntity>): String? =
+    quickAddCategoryTree(categories).roots.firstOrNull()?.id
+
 private val quickAddCategoryComparator =
     compareBy<CategoryEntity> { if (it.name.trim() == "其他") 1 else 0 }
         .thenBy(CategoryEntity::sortOrder)

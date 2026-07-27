@@ -52,6 +52,17 @@ class QuickAddPresentationTest {
     }
 
     @Test
+    fun firstRootCategoryIgnoresChildrenThatSortBeforeTheirParent() {
+        val categories = listOf(
+            category(id = "child", name = "三餐", parentId = "food", order = 0),
+            category(id = "shopping", name = "购物", order = 1),
+            category(id = "food", name = "餐饮", order = 0),
+        )
+
+        assertEquals("food", firstQuickAddRootCategoryId(categories))
+    }
+
+    @Test
     fun expandingAnotherCategoryReplacesTheCurrentOneAndSameTapCollapses() {
         assertEquals(
             "food",
