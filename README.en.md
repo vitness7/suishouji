@@ -148,7 +148,7 @@ All pages below use the light theme, and every image comes directly from the pro
 | Module | Status | Available today |
 | --- | --- | --- |
 | Ledger | Usable | Month navigation, budget summary, daily entries, editing, soft delete, undo, and quick add |
-| Quick add | Usable | Expense/income category trees, transfer accounts, notes, date/time, expressions, and continuous entry |
+| Quick add | Usable | 26 expense roots, subcategories, 12 income categories, transfer accounts, notes, expressions, and continuous entry |
 | Budgets | Usable | ¥0.00 default, total/category budgets, spent/available/overspent states, and future-month planning |
 | Calendar | Usable | Six-row paging, daily cash flow, festival/lunar labels, date selection, and past/future months |
 | Assets | Partial | Net worth, assets/liabilities, monthly inflow/outflow, and aggregated account balances |

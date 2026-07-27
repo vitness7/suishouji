@@ -18,15 +18,19 @@ Quick Add 的支出/收入分类缺少统一的线性图标和二级分类展示
 
 - Quick Add 展示层的分类树构建与图标映射。
 - 主分类展开/收起以及二级分类选择展示。
+- 默认目录补齐 26 个支出主分类、24 个支出二级分类和 12 个收入分类。
+- 启动时仅插入当前账本缺失的系统分类，保证已有安装也能获得完整目录。
 - 转账主体、转账快捷标签和账户选择面板。
 - 将 ViewModel 已有的 `accountBalances` 只读传给 Quick Add。
 - 纯展示辅助函数的单元测试，以及支出、二级分类、收入、转账和账户面板的截图回归。
 
 ## 不包含
 
-- 新增或迁移持久化分类。
+- 数据库表结构或版本迁移。
+- 覆盖、重命名或删除用户已有分类。
 - 账户新增、编辑或数据结构修改。
-- Room、DAO、Repository、ViewModel 对外状态修改。
+- Room 实体、数据库版本、Repository/ViewModel 对外状态修改。
+- 除“忽略冲突地补充缺失系统分类”以外的 DAO 或 Repository 业务改造。
 - `AmountCalculatorState`、`KeyboardMode`、IME/自定义键盘交接、备注、保存和导航逻辑修改。
 - 优惠、图片、标签、手续费的业务录入能力；本期仅建立转账展示入口。
 
@@ -43,7 +47,9 @@ Quick Add 的支出/收入分类缺少统一的线性图标和二级分类展示
 
 ## 数据影响
 
-无 schema、DAO、Repository 或持久化数据变化。分类树完全由现有 `CategoryEntity.parentId` 派生；账户余额来自现有 `OneLedgerUiState.accountBalances`。
+无 schema 变化。分类树仍由 `CategoryEntity.parentId` 派生；默认目录通过
+`INSERT IGNORE` 只补充缺失的系统分类，不覆盖用户已有记录。账户余额来自现有
+`OneLedgerUiState.accountBalances`。
 
 ## 动效与无障碍
 
@@ -64,3 +70,4 @@ Quick Add 的支出/收入分类缺少统一的线性图标和二级分类展示
 8. Given 有账户，When 打开账户面板，Then 同时显示“不选择账户”和账户名称、副标题、余额。
 9. Given 选择了转出账户，When 打开转入账户面板，Then 同一账户项不可再次选择。
 10. 构建、单元测试、Lint、截图测试和 Android 测试源码编译通过。
+11. 全新安装和已有账本均展示完整支出/收入目录；已存在分类的名称、图标和排序不被覆盖。

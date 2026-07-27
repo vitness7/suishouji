@@ -1,11 +1,16 @@
 package com.oneledger.app.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BeachAccess
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Checkroom
 import androidx.compose.material.icons.outlined.ChildCare
@@ -13,13 +18,21 @@ import androidx.compose.material.icons.outlined.CleaningServices
 import androidx.compose.material.icons.outlined.ConfirmationNumber
 import androidx.compose.material.icons.outlined.Cookie
 import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.DirectionsBus
 import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FaceRetouchingNatural
+import androidx.compose.material.icons.outlined.FamilyRestroom
+import androidx.compose.material.icons.outlined.Flight
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Luggage
+import androidx.compose.material.icons.outlined.LocalHospital
+import androidx.compose.material.icons.outlined.LocalTaxi
 import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.outlined.Medication
+import androidx.compose.material.icons.outlined.MonitorHeart
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.MoreTime
 import androidx.compose.material.icons.outlined.Payments
@@ -34,6 +47,9 @@ import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material.icons.outlined.Train
+import androidx.compose.material.icons.outlined.VolunteerActivism
+import androidx.compose.material.icons.outlined.WineBar
 import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material.icons.outlined.Yard
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -117,13 +133,33 @@ internal fun quickAddCategoryIcon(category: CategoryEntity): ImageVector {
         key in setOf("office", "work") || name == "办公" -> Icons.Outlined.WorkOutline
         key in setOf("sport", "fitness") || name == "运动" -> Icons.Outlined.FitnessCenter
         key in setOf("social", "friends") || name == "社交" -> Icons.Outlined.Groups
-        key in setOf("relationship", "favor") || name == "人情" -> Icons.Outlined.Redeem
+        key in setOf("relationship", "favor") || name == "人情" -> Icons.Outlined.VolunteerActivism
         key in setOf("child", "parenting") || name == "育儿" -> Icons.Outlined.ChildCare
         key in setOf("pet", "pets") || name == "宠物" -> Icons.Outlined.Pets
         key in setOf("travel", "trip") || name == "旅行" -> Icons.Outlined.Luggage
         key in setOf("vacation", "holiday") || name == "度假" -> Icons.Outlined.BeachAccess
-        key in setOf("wine", "tobacco") || name == "烟酒" -> Icons.Outlined.ConfirmationNumber
+        key in setOf("wine", "tobacco") || name == "烟酒" -> Icons.Outlined.WineBar
         key in setOf("lottery", "ticket") || name == "彩票" -> Icons.Outlined.ConfirmationNumber
+        key == "rent" || name == "房租" -> Icons.Outlined.Home
+        key == "mortgage" || name == "房贷" -> Icons.Outlined.AccountBalance
+        key == "property" || name == "物业" -> Icons.Outlined.Apartment
+        key == "utilities" || name == "水电燃气" -> Icons.Outlined.Bolt
+        key == "public-transit" || name == "公交地铁" -> Icons.Outlined.DirectionsBus
+        key == "taxi" || name == "打车" -> Icons.Outlined.LocalTaxi
+        key == "train" || name == "火车" -> Icons.Outlined.Train
+        key == "flight" || name == "飞机" -> Icons.Outlined.Flight
+        key == "medicine" || name == "药品" -> Icons.Outlined.Medication
+        key == "clinic" || name == "门诊" -> Icons.Outlined.MedicalServices
+        key == "hospital" || name == "住院" -> Icons.Outlined.LocalHospital
+        key == "checkup" || name == "体检" -> Icons.Outlined.MonitorHeart
+        key == "course" || name == "课程" -> Icons.Outlined.School
+        key == "books" || name == "书籍" -> Icons.AutoMirrored.Outlined.MenuBook
+        key == "exam" || name == "考试" -> Icons.AutoMirrored.Outlined.Assignment
+        key == "stationery" || name == "文具" -> Icons.Outlined.Edit
+        key == "gift-money" -> Icons.Outlined.Payments
+        key == "gift" || name == "礼物" -> Icons.Outlined.CardGiftcard
+        key == "treat" || name == "请客" -> Icons.Outlined.Restaurant
+        key == "family" || name == "孝敬" -> Icons.Outlined.FamilyRestroom
 
         key in setOf("salary", "payroll") || name == "工资" -> Icons.Outlined.Payments
         key == "bonus" || name == "奖金" -> Icons.Outlined.Redeem
@@ -131,7 +167,7 @@ internal fun quickAddCategoryIcon(category: CategoryEntity): ImageVector {
         key in setOf("benefit", "welfare") || name == "福利" -> Icons.Outlined.CardGiftcard
         key in setOf("fund", "provident-fund") || name == "公积金" -> Icons.Outlined.AccountBalance
         key in setOf("red-packet", "hongbao") || name == "红包" -> Icons.Outlined.CardGiftcard
-        key in setOf("part-time", "side-job") || name == "兼职" -> Icons.Outlined.WorkOutline
+        key in setOf("part-time", "side-job") || name == "兼职" -> Icons.Outlined.BusinessCenter
         key in setOf("side-business", "business") || name == "副业" -> Icons.Outlined.Storefront
         key in setOf("tax-refund", "refund") || name == "退税" -> Icons.Outlined.CurrencyExchange
         key in setOf("invest", "investment") || name in setOf("投资", "理财") -> Icons.AutoMirrored.Outlined.ShowChart

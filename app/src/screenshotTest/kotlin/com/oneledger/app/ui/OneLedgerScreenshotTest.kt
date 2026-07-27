@@ -21,9 +21,10 @@ import com.oneledger.app.R
 import com.oneledger.app.data.local.AccountEntity
 import com.oneledger.app.data.local.AccountBalanceItem
 import com.oneledger.app.data.local.BudgetEntity
-import com.oneledger.app.data.local.CategoryEntity
 import com.oneledger.app.data.local.SavingsPlanEntity
 import com.oneledger.app.data.local.TransactionListItem
+import com.oneledger.app.data.repository.defaultExpenseCategories
+import com.oneledger.app.data.repository.defaultIncomeCategories
 import com.oneledger.app.domain.model.AccountType
 import com.oneledger.app.domain.model.SavingsMethod
 import com.oneledger.app.domain.model.TransactionType
@@ -204,7 +205,7 @@ fun QuickAddExpandedCategoryScreenshot() {
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             nowMillis = PREVIEW_NOW,
-            initialExpandedCategoryId = "food",
+            initialExpandedCategoryId = "expense-food",
         )
     }
 }
@@ -390,47 +391,19 @@ private fun previewState(): OneLedgerUiState {
         ),
     )
 
-    val categories = listOf(
-        category("food", "餐饮", "food", 0xFFFF6B5F, now, bookId, sortOrder = 0),
-        category("shopping", "购物", "shopping", 0xFFFFA94D, now, bookId, sortOrder = 1),
-        category("clothes", "服饰", "clothes", 0xFF9B7BFF, now, bookId, sortOrder = 2),
-        category("daily", "日用", "daily", 0xFF57D3A2, now, bookId, sortOrder = 3),
-        category("digital", "数码", "digital", 0xFF29B6F6, now, bookId, sortOrder = 4),
-        category("transport", "交通", "transport", 0xFF4D7CFE, now, bookId, sortOrder = 5),
-        category("fun", "娱乐", "movie", 0xFFFFC247, now, bookId, sortOrder = 6),
-        category("health", "医疗", "health", 0xFFFF6B8A, now, bookId, sortOrder = 7),
-        category("study", "学习", "study", 0xFF6C8CFF, now, bookId, sortOrder = 8),
-        category("home", "居家", "home", 0xFF57D3A2, now, bookId, sortOrder = 9),
-        category("food-meals", "三餐", "meal-three", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 0),
-        category("food-snack", "零食", "snack", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 1),
-        category("food-fruit", "水果", "fruit", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 2),
-        category("food-vegetable", "蔬菜", "vegetable", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 3),
-    )
-    val incomeCategories = listOf(
-        category("salary", "工资", "salary", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 0),
-        category("bonus", "奖金", "bonus", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 1),
-        category("overtime", "加班", "overtime", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 2),
-        category("benefit", "福利", "benefit", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 3),
-        category("fund", "公积金", "provident-fund", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 4),
-        category("red-packet", "红包", "red-packet", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 5),
-        category("part-time", "兼职", "part-time", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 6),
-        category("side-business", "副业", "side-business", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 7),
-        category("tax-refund", "退税", "tax-refund", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 8),
-        category("investment", "投资", "investment", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 9),
-        category("windfall", "意外收入", "windfall", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 10),
-        category("income-other", "其他", "other", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 11),
-    )
+    val categories = defaultExpenseCategories(bookId, now)
+    val incomeCategories = defaultIncomeCategories(bookId, now)
 
     val transactions = listOf(
-        transaction("t1", "餐饮", "food", 0xFFFF6B5F, 2_680, "daily-card", "日常卡", "咖啡和早餐", daysAgo(now, 0)),
-        transaction("t2", "交通", "transport", 0xFF4D7CFE, 1_400, "cash", "现金", "地铁", daysAgo(now, 0) - 3_600_000),
-        transaction("t3", "购物", "shopping", 0xFFFFA94D, 18_900, "credit", "信用卡", "生活用品", daysAgo(now, 1)),
-        transaction("t4", "居家", "home", 0xFF57D3A2, 7_500, "daily-card", "日常卡", "网络服务", daysAgo(now, 3)),
+        transaction("t1", "expense-food", "餐饮", "food", 0xFFFF6B5F, 2_680, "daily-card", "日常卡", "咖啡和早餐", daysAgo(now, 0)),
+        transaction("t2", "expense-transport", "交通", "transport", 0xFF4D7CFE, 1_400, "cash", "现金", "地铁", daysAgo(now, 0) - 3_600_000),
+        transaction("t3", "expense-shopping", "购物", "shopping", 0xFFFFA94D, 18_900, "credit", "信用卡", "生活用品", daysAgo(now, 1)),
+        transaction("t4", "expense-housing", "住房", "housing", 0xFF57D3A2, 7_500, "daily-card", "日常卡", "网络服务", daysAgo(now, 3)),
         TransactionListItem(
             id = "t5",
             type = TransactionType.INCOME,
             amountMinor = 520_000,
-            categoryId = "salary",
+            categoryId = "income-salary",
             categoryName = "工资",
             iconKey = "salary",
             colorHex = 0xFF57D3A2,
@@ -465,7 +438,7 @@ private fun previewState(): OneLedgerUiState {
             BudgetEntity(
                 id = "budget-preview-food",
                 bookId = bookId,
-                categoryId = "food",
+                categoryId = "expense-food",
                 periodStart = month.start,
                 periodEnd = month.endExclusive,
                 limitMinor = 100_000,
@@ -475,7 +448,7 @@ private fun previewState(): OneLedgerUiState {
             BudgetEntity(
                 id = "budget-preview-transport",
                 bookId = bookId,
-                categoryId = "transport",
+                categoryId = "expense-transport",
                 periodStart = month.start,
                 periodEnd = month.endExclusive,
                 limitMinor = 80_000,
@@ -518,32 +491,9 @@ private fun previewState(): OneLedgerUiState {
     )
 }
 
-private fun category(
-    id: String,
-    name: String,
-    icon: String,
-    color: Long,
-    now: Long,
-    bookId: String,
-    type: String = TransactionType.EXPENSE,
-    parentId: String? = null,
-    sortOrder: Int = 0,
-) = CategoryEntity(
-    id = id,
-    bookId = bookId,
-    name = name,
-    transactionType = type,
-    iconKey = icon,
-    colorHex = color,
-    parentId = parentId,
-    sortOrder = sortOrder,
-    isSystem = true,
-    createdAt = now,
-    updatedAt = now,
-)
-
 private fun transaction(
     id: String,
+    categoryId: String,
     category: String,
     icon: String,
     color: Long,
@@ -556,7 +506,7 @@ private fun transaction(
     id = id,
     type = TransactionType.EXPENSE,
     amountMinor = amount,
-    categoryId = icon,
+    categoryId = categoryId,
     categoryName = category,
     iconKey = icon,
     colorHex = color,
