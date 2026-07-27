@@ -86,35 +86,35 @@ fun DarkSplashMarkScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "账本 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "账本 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun LedgerScreenshot() = PreviewFrame(Destination.LEDGER)
 
 @PreviewTest
-@Preview(name = "资产 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "资产 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun AssetsScreenshot() = PreviewFrame(Destination.ASSETS)
 
 @PreviewTest
-@Preview(name = "存钱 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "存钱 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun SavingsScreenshot() = PreviewFrame(Destination.SAVINGS)
 
 @PreviewTest
-@Preview(name = "统计 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "统计 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun StatisticsScreenshot() = PreviewFrame(Destination.STATISTICS)
 
 @PreviewTest
-@Preview(name = "预算详情 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "预算详情 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun BudgetDetailsScreenshot() = PreviewLedgerPage(LedgerPage.BUDGET)
 
 @PreviewTest
-@Preview(name = "预算详情 · 未来月份", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "预算详情 · 未来月份 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun BudgetDetailsFutureMonthScreenshot() {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             BudgetDetailScreen(
                 state = previewState(),
@@ -128,24 +128,24 @@ fun BudgetDetailsFutureMonthScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "预算编辑 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "预算编辑 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun BudgetEditorScreenshot() {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         BudgetEditorPreviewSurface()
     }
 }
 
 @PreviewTest
-@Preview(name = "收支日历 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "收支日历 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun IncomeExpenseCalendarScreenshot() = PreviewLedgerPage(LedgerPage.CALENDAR)
 
 @PreviewTest
-@Preview(name = "收支日历 · 改选日期", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "收支日历 · 改选日期 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun IncomeExpenseCalendarSelectedDayScreenshot() {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             IncomeExpenseCalendarScreen(
                 state = previewState(),
@@ -159,10 +159,10 @@ fun IncomeExpenseCalendarSelectedDayScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "收支日历 · 未来月份", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "收支日历 · 未来月份 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun IncomeExpenseCalendarFutureMonthScreenshot() {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             IncomeExpenseCalendarScreen(
                 state = previewState(),
@@ -176,11 +176,11 @@ fun IncomeExpenseCalendarFutureMonthScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "快速记账 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "快速记账 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun QuickAddScreenshot() {
     val state = previewState()
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
             expenseCategories = state.expenseCategories,
@@ -191,7 +191,7 @@ fun QuickAddScreenshot() {
 }
 
 @PreviewTest
-@Preview(name = "快速记账 · 表达式", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "快速记账 · 表达式 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun QuickAddExpressionScreenshot() {
     val state = previewState()
@@ -202,7 +202,7 @@ fun QuickAddExpressionScreenshot() {
         .inputDigit("1")
         .inputOperator("−")
         .inputDigit("2")
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
             expenseCategories = state.expenseCategories,
@@ -240,17 +240,17 @@ private fun TransactionEditPreview(darkTheme: Boolean) {
 }
 
 @PreviewTest
-@Preview(name = "记账时间 · 深色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_YES, showSystemUi = true)
+@Preview(name = "记账时间 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
 @Composable
 fun TransactionDateTimeScreenshot() {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         TransactionDateTimePreviewSurface(nowMillis = PREVIEW_NOW)
     }
 }
 
 @Composable
 private fun PreviewFrame(destination: Destination) {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         OneLedgerFrame(
             state = previewState(),
             destination = destination,
@@ -263,7 +263,7 @@ private fun PreviewFrame(destination: Destination) {
 
 @Composable
 private fun PreviewLedgerPage(page: LedgerPage) {
-    OneLedgerTheme(darkTheme = true) {
+    OneLedgerTheme(darkTheme = false) {
         OneLedgerFrame(
             state = previewState(),
             destination = Destination.LEDGER,

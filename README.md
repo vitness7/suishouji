@@ -36,7 +36,7 @@ OneLedger 是一款仍在开发中的本地记账应用。它把快速记账、�
 
 ## 页面展示
 
-以下图片直接来自项目的 Compose 截图回归基准。
+以下页面统一使用浅色主题，图片直接来自项目的 Compose 截图回归基准。
 
 ### 四个主页面
 
@@ -114,47 +114,33 @@ OneLedger 是一款仍在开发中的本地记账应用。它把快速记账、�
   <br />
   <table>
     <tr>
-      <td align="center" width="33%">
-        <img src="previews/10-calendar-selected-day.png" width="250" alt="收支日历改选日期" /><br />
+      <td align="center" width="25%">
+        <img src="previews/10-calendar-selected-day.png" width="205" alt="收支日历改选日期" /><br />
         <strong>日历改选日期</strong>
       </td>
-      <td align="center" width="33%">
-        <img src="previews/11-calendar-future-month.png" width="250" alt="收支日历未来月份" /><br />
+      <td align="center" width="25%">
+        <img src="previews/11-calendar-future-month.png" width="205" alt="收支日历未来月份" /><br />
         <strong>日历未来月份</strong>
       </td>
-      <td align="center" width="33%">
-        <img src="previews/15-budget-future-month.png" width="250" alt="未来月份预算" /><br />
+      <td align="center" width="25%">
+        <img src="previews/15-budget-future-month.png" width="205" alt="未来月份预算" /><br />
         <strong>未来月份预算</strong>
       </td>
-    </tr>
-    <tr>
-      <td align="center" width="50%">
-        <img src="previews/12-transaction-edit-dark.png" width="250" alt="深色账单编辑" /><br />
-        <strong>账单编辑 · 深色</strong>
-      </td>
-      <td align="center" width="50%">
-        <img src="previews/13-transaction-edit-light.png" width="250" alt="浅色账单编辑" /><br />
-        <strong>账单编辑 · 浅色</strong>
+      <td align="center" width="25%">
+        <img src="previews/13-transaction-edit-light.png" width="205" alt="浅色账单编辑" /><br />
+        <strong>账单编辑</strong>
       </td>
     </tr>
   </table>
 </details>
 
 <details>
-  <summary><strong>品牌图标与启动页</strong></summary>
+  <summary><strong>品牌图标</strong></summary>
   <br />
-  <table>
-    <tr>
-      <td align="center" width="50%">
-        <img src="previews/16-app-icon-centered.png" width="280" alt="居中的 OneLedger App Icon" /><br />
-        <strong>App Icon 安全区</strong>
-      </td>
-      <td align="center" width="50%">
-        <img src="previews/17-dark-splash.png" width="280" alt="OneLedger 深色启动页" /><br />
-        <strong>深色启动页</strong>
-      </td>
-    </tr>
-  </table>
+  <p align="center">
+    <img src="previews/16-app-icon-centered.png" width="280" alt="居中的 OneLedger App Icon" /><br />
+    <strong>App Icon 安全区</strong>
+  </p>
 </details>
 
 ## 当前完成度

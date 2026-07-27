@@ -36,7 +36,7 @@ OneLedger is a local-first Android bookkeeping app under active development. It 
 
 ## Screenshots
 
-Every image below comes directly from the project's Compose screenshot regression suite.
+All pages below use the light theme, and every image comes directly from the project's Compose screenshot regression suite.
 
 ### Main destinations
 
@@ -114,47 +114,33 @@ Every image below comes directly from the project's Compose screenshot regressio
   <br />
   <table>
     <tr>
-      <td align="center" width="33%">
-        <img src="previews/10-calendar-selected-day.png" width="250" alt="Selected calendar day" /><br />
+      <td align="center" width="25%">
+        <img src="previews/10-calendar-selected-day.png" width="205" alt="Selected calendar day" /><br />
         <strong>Selected calendar day</strong>
       </td>
-      <td align="center" width="33%">
-        <img src="previews/11-calendar-future-month.png" width="250" alt="Future calendar month" /><br />
+      <td align="center" width="25%">
+        <img src="previews/11-calendar-future-month.png" width="205" alt="Future calendar month" /><br />
         <strong>Future calendar month</strong>
       </td>
-      <td align="center" width="33%">
-        <img src="previews/15-budget-future-month.png" width="250" alt="Future month budget" /><br />
+      <td align="center" width="25%">
+        <img src="previews/15-budget-future-month.png" width="205" alt="Future month budget" /><br />
         <strong>Future month budget</strong>
       </td>
-    </tr>
-    <tr>
-      <td align="center" width="50%">
-        <img src="previews/12-transaction-edit-dark.png" width="250" alt="Transaction editor in dark mode" /><br />
-        <strong>Transaction editor · Dark</strong>
-      </td>
-      <td align="center" width="50%">
-        <img src="previews/13-transaction-edit-light.png" width="250" alt="Transaction editor in light mode" /><br />
-        <strong>Transaction editor · Light</strong>
+      <td align="center" width="25%">
+        <img src="previews/13-transaction-edit-light.png" width="205" alt="Transaction editor in light mode" /><br />
+        <strong>Transaction editor</strong>
       </td>
     </tr>
   </table>
 </details>
 
 <details>
-  <summary><strong>Brand icon and splash screen</strong></summary>
+  <summary><strong>Brand icon</strong></summary>
   <br />
-  <table>
-    <tr>
-      <td align="center" width="50%">
-        <img src="previews/16-app-icon-centered.png" width="280" alt="Centered OneLedger app icon" /><br />
-        <strong>App icon safe area</strong>
-      </td>
-      <td align="center" width="50%">
-        <img src="previews/17-dark-splash.png" width="280" alt="OneLedger dark splash screen" /><br />
-        <strong>Dark splash screen</strong>
-      </td>
-    </tr>
-  </table>
+  <p align="center">
+    <img src="previews/16-app-icon-centered.png" width="280" alt="Centered OneLedger app icon" /><br />
+    <strong>App icon safe area</strong>
+  </p>
 </details>
 
 ## Current status
