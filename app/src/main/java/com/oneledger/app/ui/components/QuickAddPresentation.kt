@@ -63,6 +63,11 @@ internal data class QuickAddCategoryTree(
     fun childrenOf(categoryId: String): List<CategoryEntity> = childrenByParent[categoryId].orEmpty()
 }
 
+internal data class QuickAddDefaultCategoryState(
+    val selectedCategoryId: String?,
+    val expandedCategoryId: String?,
+)
+
 /**
  * Builds a presentation-only hierarchy. Orphaned children remain visible as roots so a damaged or
  * partially imported category list never makes an otherwise selectable category disappear.
@@ -81,8 +86,16 @@ internal fun quickAddCategoryTree(categories: List<CategoryEntity>): QuickAddCat
     return QuickAddCategoryTree(roots = roots, childrenByParent = children)
 }
 
-internal fun firstQuickAddRootCategoryId(categories: List<CategoryEntity>): String? =
-    quickAddCategoryTree(categories).roots.firstOrNull()?.id
+internal fun defaultQuickAddCategoryState(
+    categories: List<CategoryEntity>,
+): QuickAddDefaultCategoryState {
+    val tree = quickAddCategoryTree(categories)
+    val firstRoot = tree.roots.firstOrNull()
+    return QuickAddDefaultCategoryState(
+        selectedCategoryId = firstRoot?.id,
+        expandedCategoryId = firstRoot?.id?.takeIf { tree.childrenOf(it).isNotEmpty() },
+    )
+}
 
 private val quickAddCategoryComparator =
     compareBy<CategoryEntity> { if (it.name.trim() == "其他") 1 else 0 }

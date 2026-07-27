@@ -272,9 +272,16 @@ private fun QuickAddContent(
     val noteFocusRequester = remember(editKey) { FocusRequester() }
     val hostView = LocalView.current
     val initialType = initialTypeOverride ?: initialTransaction?.type ?: TransactionType.EXPENSE
+    val initialCategories = when (initialType) {
+        TransactionType.EXPENSE -> expenseCategories
+        TransactionType.INCOME -> incomeCategories
+        else -> emptyList()
+    }
+    val initialCategoryState = defaultQuickAddCategoryState(initialCategories)
     var type by rememberSaveable(editKey) {
         mutableStateOf(initialType)
     }
+    var categoryStateType by remember(editKey) { mutableStateOf(initialType) }
     var calculatorState by rememberSaveable(
         editKey,
         stateSaver = AmountCalculatorState.Saver,
@@ -303,11 +310,7 @@ private fun QuickAddContent(
     }
     var selectedCategoryId by rememberSaveable(editKey) {
         mutableStateOf(
-            initialTransaction?.categoryId ?: when (initialType) {
-                TransactionType.EXPENSE -> firstQuickAddRootCategoryId(expenseCategories)
-                TransactionType.INCOME -> firstQuickAddRootCategoryId(incomeCategories)
-                else -> null
-            },
+            initialTransaction?.categoryId ?: initialCategoryState.selectedCategoryId,
         )
     }
     var selectedAccountId by rememberSaveable(editKey) {
@@ -320,7 +323,15 @@ private fun QuickAddContent(
         )
     }
     var selectedToAccountId by rememberSaveable(editKey) { mutableStateOf(initialTransaction?.toAccountId) }
-    var expandedCategoryId by rememberSaveable(editKey) { mutableStateOf(initialExpandedCategoryId) }
+    var expandedCategoryId by rememberSaveable(editKey) {
+        mutableStateOf(
+            initialExpandedCategoryId ?: if (isEditing) {
+                null
+            } else {
+                initialCategoryState.expandedCategoryId
+            },
+        )
+    }
     var accountPickerTarget by rememberSaveable(editKey) { mutableStateOf<TransferAccountTarget?>(null) }
     var occurredAt by rememberSaveable(editKey) { mutableLongStateOf(initialTransaction?.occurredAt ?: nowMillis) }
     var showDateTimePicker by rememberSaveable(editKey) { mutableStateOf(false) }
@@ -429,14 +440,19 @@ private fun QuickAddContent(
     }
 
     LaunchedEffect(type, categories) {
-        if (type != TransactionType.TRANSFER && categories.none { it.id == selectedCategoryId }) {
-            selectedCategoryId = firstQuickAddRootCategoryId(categories)
+        val typeChanged = categoryStateType != type
+        categoryStateType = type
+        when {
+            type == TransactionType.TRANSFER -> expandedCategoryId = null
+            categories.isNotEmpty() &&
+                (typeChanged || categories.none { it.id == selectedCategoryId }) -> {
+                val defaultState = defaultQuickAddCategoryState(categories)
+                selectedCategoryId = defaultState.selectedCategoryId
+                expandedCategoryId = defaultState.expandedCategoryId
+            }
         }
     }
     LaunchedEffect(type) {
-        if (initialExpandedCategoryId == null || type != initialType) {
-            expandedCategoryId = null
-        }
         accountPickerTarget = null
         if (type == TransactionType.TRANSFER && !isEditing) {
             selectedAccountId = null
@@ -484,9 +500,10 @@ private fun QuickAddContent(
             calculatorState = AmountCalculatorState()
             note = ""
             occurredAt = nowMillis
-            if (type == TransactionType.EXPENSE) {
-                selectedCategoryId = firstQuickAddRootCategoryId(expenseCategories)
-                expandedCategoryId = null
+            if (type != TransactionType.TRANSFER) {
+                val defaultState = defaultQuickAddCategoryState(categories)
+                selectedCategoryId = defaultState.selectedCategoryId
+                expandedCategoryId = defaultState.expandedCategoryId
             }
         }
     }

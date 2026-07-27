@@ -52,14 +52,33 @@ class QuickAddPresentationTest {
     }
 
     @Test
-    fun firstRootCategoryIgnoresChildrenThatSortBeforeTheirParent() {
+    fun defaultCategorySelectsFirstRootAndExpandsItWhenItHasChildren() {
         val categories = listOf(
             category(id = "child", name = "三餐", parentId = "food", order = 0),
             category(id = "shopping", name = "购物", order = 1),
             category(id = "food", name = "餐饮", order = 0),
         )
 
-        assertEquals("food", firstQuickAddRootCategoryId(categories))
+        assertEquals(
+            QuickAddDefaultCategoryState(
+                selectedCategoryId = "food",
+                expandedCategoryId = "food",
+            ),
+            defaultQuickAddCategoryState(categories),
+        )
+    }
+
+    @Test
+    fun defaultCategoryStaysCollapsedWhenFirstRootHasNoChildren() {
+        assertEquals(
+            QuickAddDefaultCategoryState(
+                selectedCategoryId = "shopping",
+                expandedCategoryId = null,
+            ),
+            defaultQuickAddCategoryState(
+                listOf(category(id = "shopping", name = "购物")),
+            ),
+        )
     }
 
     @Test
