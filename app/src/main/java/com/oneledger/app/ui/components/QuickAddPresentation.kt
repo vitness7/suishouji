@@ -71,22 +71,27 @@ internal fun quickAddCategoryTree(categories: List<CategoryEntity>): QuickAddCat
     val categoryIds = categories.asSequence().map { it.id }.toSet()
     val roots = categories
         .filter { it.parentId == null || it.parentId !in categoryIds }
-        .sortedWith(compareBy(CategoryEntity::sortOrder, CategoryEntity::name))
+        .sortedWith(quickAddCategoryComparator)
     val children = categories
         .filter { it.parentId in categoryIds }
         .groupBy { requireNotNull(it.parentId) }
         .mapValues { (_, values) ->
-            values.sortedWith(compareBy(CategoryEntity::sortOrder, CategoryEntity::name))
+            values.sortedWith(quickAddCategoryComparator)
         }
     return QuickAddCategoryTree(roots = roots, childrenByParent = children)
 }
+
+private val quickAddCategoryComparator =
+    compareBy<CategoryEntity> { if (it.name.trim() == "其他") 1 else 0 }
+        .thenBy(CategoryEntity::sortOrder)
+        .thenBy(CategoryEntity::name)
 
 internal fun toggledQuickAddCategory(
     expandedCategoryId: String?,
     tappedCategoryId: String,
     hasChildren: Boolean,
 ): String? = when {
-    !hasChildren -> expandedCategoryId
+    !hasChildren -> null
     expandedCategoryId == tappedCategoryId -> null
     else -> tappedCategoryId
 }

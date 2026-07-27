@@ -34,6 +34,24 @@ class QuickAddPresentationTest {
     }
 
     @Test
+    fun categoryTreeAlwaysPlacesOtherLastForExpenseAndIncome() {
+        listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
+            val tree = quickAddCategoryTree(
+                listOf(
+                    category(id = "$type-other", name = "其他", order = 0, type = type),
+                    category(id = "$type-first", name = "首项", order = 10, type = type),
+                    category(id = "$type-second", name = "次项", order = 20, type = type),
+                ),
+            )
+
+            assertEquals(
+                listOf("$type-first", "$type-second", "$type-other"),
+                tree.roots.map { it.id },
+            )
+        }
+    }
+
+    @Test
     fun expandingAnotherCategoryReplacesTheCurrentOneAndSameTapCollapses() {
         assertEquals(
             "food",
@@ -49,10 +67,13 @@ class QuickAddPresentationTest {
     }
 
     @Test
-    fun categoryWithoutChildrenDoesNotChangeExpandedPanel() {
-        assertEquals(
-            "food",
-            toggledQuickAddCategory("food", tappedCategoryId = "shopping", hasChildren = false),
+    fun categoryWithoutChildrenCollapsesTheExpandedPanel() {
+        assertNull(
+            toggledQuickAddCategory(
+                expandedCategoryId = "food",
+                tappedCategoryId = "shopping",
+                hasChildren = false,
+            ),
         )
     }
 
@@ -73,11 +94,12 @@ class QuickAddPresentationTest {
         name: String,
         parentId: String? = null,
         order: Int = 0,
+        type: String = TransactionType.EXPENSE,
     ) = CategoryEntity(
         id = id,
         bookId = "book",
         name = name,
-        transactionType = TransactionType.EXPENSE,
+        transactionType = type,
         iconKey = id,
         colorHex = 0,
         parentId = parentId,
