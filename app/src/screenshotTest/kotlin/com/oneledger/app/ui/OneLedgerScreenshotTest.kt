@@ -27,6 +27,7 @@ import com.oneledger.app.data.local.TransactionListItem
 import com.oneledger.app.domain.model.AccountType
 import com.oneledger.app.domain.model.SavingsMethod
 import com.oneledger.app.domain.model.TransactionType
+import com.oneledger.app.ui.components.AccountSelectionPreviewSurface
 import com.oneledger.app.ui.components.QuickAddPreviewSurface
 import com.oneledger.app.ui.components.AmountCalculatorState
 import com.oneledger.app.ui.components.TransactionDateTimePreviewSurface
@@ -183,9 +184,74 @@ fun QuickAddScreenshot() {
     OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             nowMillis = PREVIEW_NOW,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 餐饮二级分类 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddExpandedCategoryScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialExpandedCategoryId = "food",
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 收入 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddIncomeScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialType = TransactionType.INCOME,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 转账 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddTransferScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialType = TransactionType.TRANSFER,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 账户选择 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddAccountSelectionScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        AccountSelectionPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
         )
     }
 }
@@ -205,6 +271,7 @@ fun QuickAddExpressionScreenshot() {
     OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             nowMillis = PREVIEW_NOW,
@@ -230,6 +297,7 @@ private fun TransactionEditPreview(darkTheme: Boolean) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             QuickAddPreviewSurface(
                 accounts = state.accounts,
+                accountBalances = state.accountBalances,
                 expenseCategories = state.expenseCategories,
                 incomeCategories = state.incomeCategories,
                 nowMillis = PREVIEW_NOW,
@@ -323,16 +391,34 @@ private fun previewState(): OneLedgerUiState {
     )
 
     val categories = listOf(
-        category("food", "餐饮", "food", 0xFFFF6B5F, now, bookId),
-        category("shopping", "购物", "shopping", 0xFFFFA94D, now, bookId),
-        category("clothes", "服饰", "shopping", 0xFF9B7BFF, now, bookId),
-        category("daily", "日用", "home", 0xFF57D3A2, now, bookId),
-        category("digital", "数码", "shopping", 0xFF29B6F6, now, bookId),
-        category("transport", "交通", "transport", 0xFF4D7CFE, now, bookId),
-        category("fun", "娱乐", "movie", 0xFFFFC247, now, bookId),
-        category("health", "医疗", "health", 0xFFFF6B8A, now, bookId),
-        category("study", "学习", "study", 0xFF6C8CFF, now, bookId),
-        category("home", "居家", "home", 0xFF57D3A2, now, bookId),
+        category("food", "餐饮", "food", 0xFFFF6B5F, now, bookId, sortOrder = 0),
+        category("shopping", "购物", "shopping", 0xFFFFA94D, now, bookId, sortOrder = 1),
+        category("clothes", "服饰", "clothes", 0xFF9B7BFF, now, bookId, sortOrder = 2),
+        category("daily", "日用", "daily", 0xFF57D3A2, now, bookId, sortOrder = 3),
+        category("digital", "数码", "digital", 0xFF29B6F6, now, bookId, sortOrder = 4),
+        category("transport", "交通", "transport", 0xFF4D7CFE, now, bookId, sortOrder = 5),
+        category("fun", "娱乐", "movie", 0xFFFFC247, now, bookId, sortOrder = 6),
+        category("health", "医疗", "health", 0xFFFF6B8A, now, bookId, sortOrder = 7),
+        category("study", "学习", "study", 0xFF6C8CFF, now, bookId, sortOrder = 8),
+        category("home", "居家", "home", 0xFF57D3A2, now, bookId, sortOrder = 9),
+        category("food-meals", "三餐", "meal-three", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 0),
+        category("food-snack", "零食", "snack", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 1),
+        category("food-fruit", "水果", "fruit", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 2),
+        category("food-vegetable", "蔬菜", "vegetable", 0xFFFF6B5F, now, bookId, parentId = "food", sortOrder = 3),
+    )
+    val incomeCategories = listOf(
+        category("salary", "工资", "salary", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 0),
+        category("bonus", "奖金", "bonus", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 1),
+        category("overtime", "加班", "overtime", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 2),
+        category("benefit", "福利", "benefit", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 3),
+        category("fund", "公积金", "provident-fund", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 4),
+        category("red-packet", "红包", "red-packet", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 5),
+        category("part-time", "兼职", "part-time", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 6),
+        category("side-business", "副业", "side-business", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 7),
+        category("tax-refund", "退税", "tax-refund", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 8),
+        category("investment", "投资", "investment", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 9),
+        category("windfall", "意外收入", "windfall", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 10),
+        category("income-other", "其他", "other", 0xFF57D3A2, now, bookId, TransactionType.INCOME, sortOrder = 11),
     )
 
     val transactions = listOf(
@@ -428,7 +514,7 @@ private fun previewState(): OneLedgerUiState {
             ),
         ),
         expenseCategories = categories,
-        incomeCategories = listOf(category("salary", "工资", "salary", 0xFF57D3A2, now, bookId, TransactionType.INCOME)),
+        incomeCategories = incomeCategories,
     )
 }
 
@@ -440,6 +526,8 @@ private fun category(
     now: Long,
     bookId: String,
     type: String = TransactionType.EXPENSE,
+    parentId: String? = null,
+    sortOrder: Int = 0,
 ) = CategoryEntity(
     id = id,
     bookId = bookId,
@@ -447,7 +535,8 @@ private fun category(
     transactionType = type,
     iconKey = icon,
     colorHex = color,
-    sortOrder = 0,
+    parentId = parentId,
+    sortOrder = sortOrder,
     isSystem = true,
     createdAt = now,
     updatedAt = now,
