@@ -37,13 +37,17 @@ class OfflineLedgerRepository(
         activeBookId.flatMapLatest { bookId -> dao.observeCategories(bookId, type) }
 
     override suspend fun ensureSeedData() {
+        val now = System.currentTimeMillis()
         val existingBookId = dao.getDefaultBookId() ?: dao.getFirstBookId()
         if (existingBookId != null) {
+            dao.insertCategoriesIfAbsent(
+                defaultExpenseCategories(existingBookId, now) +
+                    defaultIncomeCategories(existingBookId, now),
+            )
             mutableActiveBookId.value = existingBookId
             return
         }
 
-        val now = System.currentTimeMillis()
         val month = MonthWindow.current(now)
         val yearLater = Calendar.getInstance().apply {
             timeInMillis = now
@@ -91,7 +95,8 @@ class OfflineLedgerRepository(
         dao.seed(
             book = book,
             accounts = accounts,
-            categories = expenseCategories(now) + incomeCategories(now),
+            categories = defaultExpenseCategories(DEFAULT_BOOK_ID, now) +
+                defaultIncomeCategories(DEFAULT_BOOK_ID, now),
             budget = BudgetEntity(
                 id = "budget-${month.start}",
                 bookId = DEFAULT_BOOK_ID,
@@ -211,45 +216,6 @@ class OfflineLedgerRepository(
             require(dao.categoryExists(bookId, categoryId, transaction.type)) { "分类不属于当前账本" }
         }
     }
-
-    private fun expenseCategories(now: Long) = listOf(
-        category("expense-food", "餐饮", TransactionType.EXPENSE, "food", 0xFFFF6B5F, 0, now),
-        category("expense-transport", "交通", TransactionType.EXPENSE, "transport", 0xFF4D7CFE, 1, now),
-        category("expense-shopping", "购物", TransactionType.EXPENSE, "shopping", 0xFFFFA94D, 2, now),
-        category("expense-fun", "娱乐", TransactionType.EXPENSE, "movie", 0xFF9B7BFF, 3, now),
-        category("expense-home", "居家", TransactionType.EXPENSE, "home", 0xFF57D3A2, 4, now),
-        category("expense-study", "学习", TransactionType.EXPENSE, "study", 0xFF4CC9F0, 5, now),
-        category("expense-health", "医疗", TransactionType.EXPENSE, "health", 0xFFFF7AA2, 6, now),
-        category("expense-other", "其他", TransactionType.EXPENSE, "other", 0xFF8992A3, 7, now),
-    )
-
-    private fun incomeCategories(now: Long) = listOf(
-        category("income-salary", "工资", TransactionType.INCOME, "salary", 0xFF57D3A2, 0, now),
-        category("income-bonus", "奖金", TransactionType.INCOME, "bonus", 0xFFFFC247, 1, now),
-        category("income-invest", "理财", TransactionType.INCOME, "invest", 0xFF4D7CFE, 2, now),
-        category("income-other", "其他", TransactionType.INCOME, "other", 0xFF8992A3, 3, now),
-    )
-
-    private fun category(
-        id: String,
-        name: String,
-        type: String,
-        icon: String,
-        color: Long,
-        order: Int,
-        now: Long,
-    ) = CategoryEntity(
-        id = id,
-        bookId = DEFAULT_BOOK_ID,
-        name = name,
-        transactionType = type,
-        iconKey = icon,
-        colorHex = color,
-        sortOrder = order,
-        isSystem = true,
-        createdAt = now,
-        updatedAt = now,
-    )
 
     companion object {
         const val DEFAULT_BOOK_ID = "book-default"

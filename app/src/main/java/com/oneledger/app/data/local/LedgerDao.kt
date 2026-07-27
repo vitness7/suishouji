@@ -2,6 +2,7 @@ package com.oneledger.app.data.local
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -129,6 +130,9 @@ interface LedgerDao {
 
     @Upsert
     suspend fun upsertCategories(categories: List<CategoryEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCategoriesIfAbsent(categories: List<CategoryEntity>)
 
     @Upsert
     suspend fun upsertBudget(budget: BudgetEntity)

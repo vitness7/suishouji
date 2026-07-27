@@ -82,7 +82,7 @@ OneLedger 是一款仍在开发中的本地记账应用。它把快速记账、�
     <td align="center" width="33%">
       <img src="previews/08-quick-add.png" width="250" alt="快速记账页面" /><br />
       <strong>快速记账</strong><br />
-      <sub>支出、收入、转账与分类选择</sub>
+      <sub>红/绿分类语义、二级分类与转账账户选择</sub>
     </td>
   </tr>
 </table>
@@ -148,7 +148,7 @@ OneLedger 是一款仍在开发中的本地记账应用。它把快速记账、�
 | 模块 | 状态 | 当前能力 |
 | --- | --- | --- |
 | 账本 | 可用 | 月份切换、预算摘要、按日账单、编辑、软删除、撤销和快速记账 |
-| 快速记账 | 可用 | 支出、收入、转账、分类、账户、备注、日期时间、表达式与连续记账 |
+| 快速记账 | 可用 | 26 个支出主分类、二级分类、12 个收入分类、转账账户选择、备注、表达式与连续记账 |
 | 预算 | 可用 | 默认预算 ¥0.00、总预算、分类预算、已用/可用/超支和未来月份预算 |
 | 收支日历 | 可用 | 六行月份分页、每日收支、节日/农历、日期选择和过去/未来月份 |
 | 资产 | 部分可用 | 净资产、资产/负债、本月流入/流出和账户余额聚合 |
@@ -229,7 +229,7 @@ app/build/outputs/apk/debug/app-debug.apk
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-界面发生经过确认的视觉变化后，使用 `updateDebugScreenshotTest` 更新 17 张截图基准；日常提交运行 `validateDebugScreenshotTest`，避免无意覆盖差异。
+界面发生经过确认的视觉变化后，使用 `updateDebugScreenshotTest` 更新 21 张截图基准；日常提交运行 `validateDebugScreenshotTest`，避免无意覆盖差异。
 
 ## 项目文档
 

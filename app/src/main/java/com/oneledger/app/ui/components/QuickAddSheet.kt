@@ -2,9 +2,12 @@ package com.oneledger.app.ui.components
 
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -40,10 +44,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -51,14 +55,21 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Percent
+import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -109,6 +120,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.window.DialogProperties
 import com.oneledger.app.data.local.AccountEntity
+import com.oneledger.app.data.local.AccountBalanceItem
 import com.oneledger.app.data.local.CategoryEntity
 import com.oneledger.app.data.local.TransactionListItem
 import com.oneledger.app.domain.model.NewTransaction
@@ -118,6 +130,7 @@ import com.oneledger.app.ui.theme.BrandBlueLight
 import com.oneledger.app.ui.theme.ExpenseCoral
 import com.oneledger.app.ui.theme.IncomeMint
 import com.oneledger.app.ui.theme.OneLedgerMotion
+import com.oneledger.app.ui.theme.SavingsAmber
 import com.oneledger.app.util.CalendarDateCell
 import com.oneledger.app.util.MoneyFormatter
 import com.oneledger.app.util.MonthWindow
@@ -143,6 +156,11 @@ internal enum class KeyboardMode {
 internal enum class QuickAddFocusField {
     AMOUNT,
     NOTE,
+}
+
+private enum class TransferAccountTarget {
+    FROM,
+    TO,
 }
 
 internal data class QuickAddKeyboardState(
@@ -187,6 +205,7 @@ private object KeyboardKeyStyle {
 @Composable
 fun QuickAddSheet(
     accounts: List<AccountEntity>,
+    accountBalances: List<AccountBalanceItem>,
     expenseCategories: List<CategoryEntity>,
     incomeCategories: List<CategoryEntity>,
     onDismiss: () -> Unit,
@@ -208,6 +227,7 @@ fun QuickAddSheet(
     ) {
         QuickAddContent(
             accounts = accounts,
+            accountBalances = accountBalances,
             expenseCategories = expenseCategories,
             incomeCategories = incomeCategories,
             onDismiss = onDismiss,
@@ -216,6 +236,7 @@ fun QuickAddSheet(
             onDelete = onDelete,
             errorMessage = errorMessage,
             nowMillis = nowMillis,
+            initialTypeOverride = null,
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.97f),
@@ -228,6 +249,7 @@ fun QuickAddSheet(
 @Composable
 private fun QuickAddContent(
     accounts: List<AccountEntity>,
+    accountBalances: List<AccountBalanceItem>,
     expenseCategories: List<CategoryEntity>,
     incomeCategories: List<CategoryEntity>,
     onDismiss: () -> Unit,
@@ -238,6 +260,8 @@ private fun QuickAddContent(
     nowMillis: Long,
     modifier: Modifier = Modifier,
     initialCalculatorState: AmountCalculatorState? = null,
+    initialTypeOverride: String? = null,
+    initialExpandedCategoryId: String? = null,
 ) {
     val editKey = initialTransaction?.id
     val isEditing = initialTransaction != null
@@ -247,7 +271,10 @@ private fun QuickAddContent(
     val amountFocusRequester = remember(editKey) { FocusRequester() }
     val noteFocusRequester = remember(editKey) { FocusRequester() }
     val hostView = LocalView.current
-    var type by rememberSaveable(editKey) { mutableStateOf(initialTransaction?.type ?: TransactionType.EXPENSE) }
+    val initialType = initialTypeOverride ?: initialTransaction?.type ?: TransactionType.EXPENSE
+    var type by rememberSaveable(editKey) {
+        mutableStateOf(initialType)
+    }
     var calculatorState by rememberSaveable(
         editKey,
         stateSaver = AmountCalculatorState.Saver,
@@ -274,9 +301,27 @@ private fun QuickAddContent(
     val customKeyboardAnimation = remember(editKey) {
         Animatable(if (requestedFocusField == QuickAddFocusField.AMOUNT) 1f else 0f)
     }
-    var selectedCategoryId by rememberSaveable(editKey) { mutableStateOf(initialTransaction?.categoryId) }
-    var selectedAccountId by rememberSaveable(editKey) { mutableStateOf(initialTransaction?.accountId) }
+    var selectedCategoryId by rememberSaveable(editKey) {
+        mutableStateOf(
+            initialTransaction?.categoryId ?: when (initialType) {
+                TransactionType.EXPENSE -> expenseCategories.firstOrNull()?.id
+                TransactionType.INCOME -> incomeCategories.firstOrNull()?.id
+                else -> null
+            },
+        )
+    }
+    var selectedAccountId by rememberSaveable(editKey) {
+        mutableStateOf(
+            initialTransaction?.accountId ?: if (initialType == TransactionType.TRANSFER) {
+                null
+            } else {
+                accounts.firstOrNull()?.id
+            },
+        )
+    }
     var selectedToAccountId by rememberSaveable(editKey) { mutableStateOf(initialTransaction?.toAccountId) }
+    var expandedCategoryId by rememberSaveable(editKey) { mutableStateOf(initialExpandedCategoryId) }
+    var accountPickerTarget by rememberSaveable(editKey) { mutableStateOf<TransferAccountTarget?>(null) }
     var occurredAt by rememberSaveable(editKey) { mutableLongStateOf(initialTransaction?.occurredAt ?: nowMillis) }
     var showDateTimePicker by rememberSaveable(editKey) { mutableStateOf(false) }
     var showDeleteConfirm by rememberSaveable(editKey) { mutableStateOf(false) }
@@ -288,7 +333,10 @@ private fun QuickAddContent(
     val accent = when (type) {
         TransactionType.EXPENSE -> ExpenseCoral
         TransactionType.INCOME -> IncomeMint
-        else -> BrandBlue
+        else -> SavingsAmber
+    }
+    val balanceByAccountId = remember(accountBalances) {
+        accountBalances.associate { it.accountId to it.currentBalanceMinor }
     }
     val parsedAmount = MoneyFormatter.parseToMinor(calculatorState.settledAmountOrNull.orEmpty())
     val canSave = parsedAmount != null && parsedAmount > 0 && selectedAccountId != null && when (type) {
@@ -385,10 +433,24 @@ private fun QuickAddContent(
             selectedCategoryId = categories.firstOrNull()?.id
         }
     }
-    LaunchedEffect(accounts) {
-        if (accounts.none { it.id == selectedAccountId }) selectedAccountId = accounts.firstOrNull()?.id
-        if (accounts.none { it.id == selectedToAccountId } || selectedToAccountId == selectedAccountId) {
-            selectedToAccountId = accounts.firstOrNull { it.id != selectedAccountId }?.id
+    LaunchedEffect(type) {
+        if (initialExpandedCategoryId == null || type != initialType) {
+            expandedCategoryId = null
+        }
+        accountPickerTarget = null
+        if (type == TransactionType.TRANSFER && !isEditing) {
+            selectedAccountId = null
+            selectedToAccountId = null
+        }
+    }
+    LaunchedEffect(accounts, type) {
+        if (type == TransactionType.TRANSFER) {
+            if (accounts.none { it.id == selectedAccountId }) selectedAccountId = null
+            if (accounts.none { it.id == selectedToAccountId } || selectedToAccountId == selectedAccountId) {
+                selectedToAccountId = null
+            }
+        } else if (accounts.none { it.id == selectedAccountId }) {
+            selectedAccountId = accounts.firstOrNull()?.id
         }
     }
 
@@ -447,28 +509,41 @@ private fun QuickAddContent(
             if (activeType == TransactionType.TRANSFER) {
                 TransferAccountSelector(
                     accounts = accounts,
+                    accountBalances = balanceByAccountId,
                     fromAccountId = selectedAccountId,
                     toAccountId = selectedToAccountId,
-                    onFromSelected = { selectedAccountId = it },
-                    onToSelected = { selectedToAccountId = it },
+                    onFromClick = { accountPickerTarget = TransferAccountTarget.FROM },
+                    onToClick = { accountPickerTarget = TransferAccountTarget.TO },
+                    onSwap = {
+                        val previousFrom = selectedAccountId
+                        selectedAccountId = selectedToAccountId
+                        selectedToAccountId = previousFrom
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
                 val activeCategories = if (activeType == TransactionType.EXPENSE) expenseCategories else incomeCategories
                 CategoryGrid(
                     categories = activeCategories,
+                    accent = if (activeType == TransactionType.EXPENSE) ExpenseCoral else IncomeMint,
                     selectedCategoryId = selectedCategoryId,
                     onSelected = { selectedCategoryId = it },
+                    expandedCategoryId = expandedCategoryId,
+                    onExpandedCategoryChanged = { expandedCategoryId = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
         }
-        QuickOptionRow(
-            accounts = accounts,
-            selectedAccountId = selectedAccountId,
-            onAccountSelected = { selectedAccountId = it },
-            onDateClick = { showDateTimePicker = true },
-        )
+        if (type == TransactionType.TRANSFER) {
+            TransferOptionRow()
+        } else {
+            QuickOptionRow(
+                accounts = accounts,
+                selectedAccountId = selectedAccountId,
+                onAccountSelected = { selectedAccountId = it },
+                onDateClick = { showDateTimePicker = true },
+            )
+        }
         Spacer(Modifier.height(8.dp))
         AmountPanel(
             displayAmount = calculatorState.displayText.ifBlank { "0.00" },
@@ -561,6 +636,29 @@ private fun QuickAddContent(
             },
         )
     }
+
+    accountPickerTarget?.let { target ->
+        AccountSelectionSheet(
+            accounts = accounts,
+            accountBalances = balanceByAccountId,
+            selectedAccountId = when (target) {
+                TransferAccountTarget.FROM -> selectedAccountId
+                TransferAccountTarget.TO -> selectedToAccountId
+            },
+            disabledAccountId = when (target) {
+                TransferAccountTarget.FROM -> selectedToAccountId
+                TransferAccountTarget.TO -> selectedAccountId
+            },
+            onDismiss = { accountPickerTarget = null },
+            onSelected = { accountId ->
+                when (target) {
+                    TransferAccountTarget.FROM -> selectedAccountId = accountId
+                    TransferAccountTarget.TO -> selectedToAccountId = accountId
+                }
+                accountPickerTarget = null
+            },
+        )
+    }
 }
 
 @Composable
@@ -597,7 +695,7 @@ private fun QuickAddHeader(
         ) {
             TransactionTypeTab("支出", TransactionType.EXPENSE, type, ExpenseCoral, onTypeSelected)
             TransactionTypeTab("收入", TransactionType.INCOME, type, IncomeMint, onTypeSelected)
-            TransactionTypeTab("转账", TransactionType.TRANSFER, type, BrandBlue, onTypeSelected)
+            TransactionTypeTab("转账", TransactionType.TRANSFER, type, SavingsAmber, onTypeSelected)
         }
         Spacer(Modifier.weight(1f))
         Box(modifier = Modifier.width(44.dp), contentAlignment = Alignment.CenterEnd) {
@@ -641,57 +739,234 @@ private fun TransactionTypeTab(
 @Composable
 private fun CategoryGrid(
     categories: List<CategoryEntity>,
+    accent: Color,
     selectedCategoryId: String?,
     onSelected: (String) -> Unit,
+    expandedCategoryId: String?,
+    onExpandedCategoryChanged: (String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(5),
+    val tree = remember(categories) { quickAddCategoryTree(categories) }
+    val rows = remember(tree.roots) { tree.roots.chunked(5) }
+    LazyColumn(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        items(categories, key = { it.id }) { category ->
-            val color = colorFromLong(category.colorHex)
-            PressableSurface(
-                onClick = { onSelected(category.id) },
-                color = Color.Transparent,
-                shape = RoundedCornerShape(14.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 5.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+        if (rows.isEmpty()) {
+            item("empty-categories") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 42.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
+                    Text(
+                        "暂无可用分类",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+        itemsIndexed(
+            items = rows,
+            key = { _, row -> row.joinToString(separator = "|", transform = CategoryEntity::id) },
+        ) { _, row ->
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    row.forEach { category ->
+                        val children = tree.childrenOf(category.id)
+                        CategoryCell(
+                            category = category,
+                            selected = category.id == selectedCategoryId,
+                            hasChildren = children.isNotEmpty(),
+                            accent = accent,
+                            onClick = {
+                                onSelected(category.id)
+                                onExpandedCategoryChanged(
+                                    toggledQuickAddCategory(
+                                        expandedCategoryId = expandedCategoryId,
+                                        tappedCategoryId = category.id,
+                                        hasChildren = children.isNotEmpty(),
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    repeat(5 - row.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+
+                val expandedInRow = row.firstOrNull { it.id == expandedCategoryId }
+                AnimatedVisibility(
+                    visible = expandedInRow != null,
+                    enter = expandVertically(
+                        animationSpec = tween(OneLedgerMotion.ContentEnterMillis),
+                        expandFrom = Alignment.Top,
+                    ) + fadeIn(tween(OneLedgerMotion.ContentEnterMillis)),
+                    exit = shrinkVertically(
+                        animationSpec = tween(OneLedgerMotion.ContentExitMillis),
+                        shrinkTowards = Alignment.Top,
+                    ) + fadeOut(tween(OneLedgerMotion.ContentExitMillis)),
+                    label = "quick-add-subcategories",
+                ) {
+                    expandedInRow?.let { parent ->
+                        SubcategoryPanel(
+                            categories = tree.childrenOf(parent.id),
+                            selectedCategoryId = selectedCategoryId,
+                            accent = accent,
+                            onSelected = onSelected,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryCell(
+    category: CategoryEntity,
+    selected: Boolean,
+    hasChildren: Boolean,
+    accent: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PressableSurface(
+        onClick = onClick,
+        modifier = modifier,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(14.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier.size(50.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(
+                            if (selected) accent else MaterialTheme.colorScheme.surfaceVariant,
+                            CircleShape,
+                        )
+                        .border(
+                            1.dp,
+                            if (selected) Color.White.copy(alpha = 0.30f)
+                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.24f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        quickAddCategoryIcon(category),
+                        contentDescription = category.name,
+                        tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(23.dp),
+                    )
+                }
+                if (hasChildren) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .background(
-                                if (category.id == selectedCategoryId) color else MaterialTheme.colorScheme.surface,
-                                CircleShape,
-                            )
-                            .border(
-                                1.dp,
-                                if (category.id == selectedCategoryId) Color.White.copy(alpha = 0.28f)
-                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                CircleShape,
-                            ),
+                            .align(Alignment.BottomEnd)
+                            .size(16.dp)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape)
+                            .border(1.dp, MaterialTheme.colorScheme.background, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            categoryIcon(category.iconKey),
-                            contentDescription = category.name,
-                            tint = if (category.id == selectedCategoryId) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(23.dp),
+                            Icons.Default.MoreHoriz,
+                            contentDescription = "${category.name}包含二级分类",
+                            tint = MaterialTheme.colorScheme.background,
+                            modifier = Modifier.size(12.dp),
                         )
                     }
-                    Text(
-                        category.name,
-                        modifier = Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (category.id == selectedCategoryId) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                }
+            }
+            Text(
+                category.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 3.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SubcategoryPanel(
+    categories: List<CategoryEntity>,
+    selectedCategoryId: String?,
+    accent: Color,
+    onSelected: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(categories, key = CategoryEntity::id) { category ->
+                val selected = category.id == selectedCategoryId
+                PressableSurface(
+                    onClick = { onSelected(category.id) },
+                    modifier = Modifier.width(70.dp),
+                    color = if (selected) accent.copy(alpha = 0.16f) else Color.Transparent,
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 5.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .background(
+                                    if (selected) accent.copy(alpha = 0.18f)
+                                    else MaterialTheme.colorScheme.surface,
+                                    CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                quickAddCategoryIcon(category),
+                                contentDescription = category.name,
+                                tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                        Text(
+                            category.name,
+                            modifier = Modifier.padding(top = 3.dp),
+                            color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
@@ -701,37 +976,483 @@ private fun CategoryGrid(
 @Composable
 private fun TransferAccountSelector(
     accounts: List<AccountEntity>,
+    accountBalances: Map<String, Long>,
     fromAccountId: String?,
     toAccountId: String?,
-    onFromSelected: (String) -> Unit,
-    onToSelected: (String) -> Unit,
+    onFromClick: () -> Unit,
+    onToClick: () -> Unit,
+    onSwap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("转出账户", style = MaterialTheme.typography.titleMedium)
-        AccountGrid(accounts, fromAccountId, onFromSelected)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(28.dp))
+    val fromAccount = accounts.firstOrNull { it.id == fromAccountId }
+    val toAccount = accounts.firstOrNull { it.id == toAccountId }
+    Column(
+        modifier = modifier.padding(horizontal = 2.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        TransferAccountCard(
+            placeholder = "请选择转出账户",
+            account = fromAccount,
+            balanceMinor = fromAccount?.let { accountBalances[it.id] ?: it.openingBalanceMinor },
+            onClick = onFromClick,
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center,
+        ) {
+            PressableSurface(
+                onClick = onSwap,
+                enabled = fromAccount != null || toAccount != null,
+                modifier = Modifier.size(44.dp),
+                color = SavingsAmber.copy(alpha = 0.16f),
+                shape = CircleShape,
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.SwapVert,
+                        contentDescription = "交换转出和转入账户",
+                        tint = SavingsAmber,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
         }
-        Text("转入账户", style = MaterialTheme.typography.titleMedium)
-        AccountGrid(accounts.filter { it.id != fromAccountId }, toAccountId, onToSelected)
+        TransferAccountCard(
+            placeholder = "请选择转入账户",
+            account = toAccount,
+            balanceMinor = toAccount?.let { accountBalances[it.id] ?: it.openingBalanceMinor },
+            onClick = onToClick,
+        )
     }
 }
 
 @Composable
-private fun AccountGrid(accounts: List<AccountEntity>, selected: String?, onSelected: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        accounts.take(4).forEach { account ->
-            PressableSurface(
-                onClick = { onSelected(account.id) },
-                color = if (account.id == selected) BrandBlue.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surface,
-                modifier = Modifier.weight(1f),
+private fun TransferAccountCard(
+    placeholder: String,
+    account: AccountEntity?,
+    balanceMinor: Long?,
+    onClick: () -> Unit,
+) {
+    PressableSurface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(86.dp)
+                .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (account == null) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(SavingsAmber.copy(alpha = 0.16f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = SavingsAmber,
+                        modifier = Modifier.size(21.dp),
+                    )
+                }
+                Text(
+                    placeholder,
+                    modifier = Modifier.padding(start = 13.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            } else {
+                AccountGlyph(
+                    accountType = account.type,
+                    color = colorFromLong(account.colorHex),
+                    modifier = Modifier.size(44.dp),
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(start = 13.dp)
+                        .weight(1f),
+                ) {
+                    Text(
+                        account.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        account.subtitle.ifBlank { account.type },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    MoneyFormatter.format(balanceMinor ?: account.openingBalanceMinor),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferOptionRow() {
+    val options = listOf(
+        Triple(Icons.Default.Redeem, "优惠", IncomeMint),
+        Triple(Icons.Default.Image, "图片", SavingsAmber),
+        Triple(Icons.AutoMirrored.Filled.Label, "标签", BrandBlueLight),
+        Triple(Icons.Default.Percent, "手续费", ExpenseCoral),
+    )
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(options, key = { it.second }) { (icon, label, color) ->
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    AccountGlyph(account.type, colorFromLong(account.colorHex), modifier = Modifier.size(38.dp))
-                    Text(account.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(19.dp)
+                            .background(color, RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            icon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
+                    Text(
+                        label,
+                        modifier = Modifier.padding(start = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountSelectionSheet(
+    accounts: List<AccountEntity>,
+    accountBalances: Map<String, Long>,
+    selectedAccountId: String?,
+    disabledAccountId: String?,
+    onDismiss: () -> Unit,
+    onSelected: (String?) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.background,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 9.dp, bottom = 7.dp)
+                    .width(42.dp)
+                    .height(4.dp)
+                    .background(MaterialTheme.colorScheme.outline, CircleShape),
+            )
+        },
+    ) {
+        AccountSelectionContent(
+            accounts = accounts,
+            accountBalances = accountBalances,
+            selectedAccountId = selectedAccountId,
+            disabledAccountId = disabledAccountId,
+            onDismiss = onDismiss,
+            onSelected = onSelected,
+        )
+    }
+}
+
+@Composable
+private fun AccountSelectionContent(
+    accounts: List<AccountEntity>,
+    accountBalances: Map<String, Long>,
+    selectedAccountId: String?,
+    disabledAccountId: String?,
+    onDismiss: () -> Unit,
+    onSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val visibleAccounts = remember(accounts, searchQuery) {
+        filteredQuickAddAccounts(accounts, searchQuery)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+            .padding(start = 16.dp, end = 16.dp, bottom = 18.dp),
+    ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PressableSurface(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(44.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(15.dp),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "关闭账户选择",
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+                Text(
+                    "选择账户",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Row(
+                    modifier = Modifier.width(92.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = BrandBlueLight.copy(alpha = 0.72f),
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Text(
+                        "添加账户",
+                        color = BrandBlueLight.copy(alpha = 0.72f),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it.take(30) },
+                        modifier = Modifier
+                            .padding(start = 10.dp)
+                            .weight(1f),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search,
+                        ),
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (searchQuery.isBlank()) {
+                                    Text(
+                                        "请输入账户名称",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 110.dp, max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                item("no-account") {
+                    AccountSelectionRow(
+                        account = null,
+                        balanceMinor = null,
+                        selected = selectedAccountId == null,
+                        enabled = true,
+                        onClick = { onSelected(null) },
+                    )
+                }
+                items(visibleAccounts, key = AccountEntity::id) { account ->
+                    AccountSelectionRow(
+                        account = account,
+                        balanceMinor = accountBalances[account.id] ?: account.openingBalanceMinor,
+                        selected = account.id == selectedAccountId,
+                        enabled = account.id != disabledAccountId,
+                        onClick = { onSelected(account.id) },
+                    )
+                }
+                if (accounts.isNotEmpty() && visibleAccounts.isEmpty()) {
+                    item("empty-search-result") {
+                        Text(
+                            "没有匹配的账户",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 22.dp),
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+            }
+    }
+}
+
+@Composable
+internal fun AccountSelectionPreviewSurface(
+    accounts: List<AccountEntity>,
+    accountBalances: List<AccountBalanceItem>,
+) {
+    val balanceByAccountId = remember(accountBalances) {
+        accountBalances.associate { it.accountId to it.currentBalanceMinor }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.16f)),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 9.dp, bottom = 7.dp)
+                        .width(42.dp)
+                        .height(4.dp)
+                        .background(MaterialTheme.colorScheme.outline, CircleShape),
+                )
+                AccountSelectionContent(
+                    accounts = accounts,
+                    accountBalances = balanceByAccountId,
+                    selectedAccountId = null,
+                    disabledAccountId = null,
+                    onDismiss = {},
+                    onSelected = {},
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountSelectionRow(
+    account: AccountEntity?,
+    balanceMinor: Long?,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    PressableSurface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        color = if (selected) BrandBlue.copy(alpha = 0.10f) else Color.Transparent,
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp)
+                .graphicsLayer { alpha = if (enabled) 1f else 0.38f },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (account == null) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(SavingsAmber.copy(alpha = 0.20f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = SavingsAmber,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Text(
+                    "不选择账户",
+                    modifier = Modifier
+                        .padding(start = 13.dp)
+                        .weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            } else {
+                AccountGlyph(
+                    accountType = account.type,
+                    color = colorFromLong(account.colorHex),
+                    modifier = Modifier.size(46.dp),
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(start = 13.dp)
+                        .weight(1f),
+                ) {
+                    Text(
+                        account.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        account.subtitle.ifBlank { account.type },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    MoneyFormatter.format(balanceMinor ?: account.openingBalanceMinor),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
@@ -1384,14 +2105,18 @@ private fun ClockDialog(
 @Composable
 internal fun QuickAddPreviewSurface(
     accounts: List<AccountEntity>,
+    accountBalances: List<AccountBalanceItem> = emptyList(),
     expenseCategories: List<CategoryEntity>,
     incomeCategories: List<CategoryEntity>,
     nowMillis: Long,
     initialTransaction: TransactionListItem? = null,
     initialCalculatorState: AmountCalculatorState? = null,
+    initialType: String? = null,
+    initialExpandedCategoryId: String? = null,
 ) {
     QuickAddContent(
         accounts = accounts,
+        accountBalances = accountBalances,
         expenseCategories = expenseCategories,
         incomeCategories = incomeCategories,
         onDismiss = {},
@@ -1401,6 +2126,8 @@ internal fun QuickAddPreviewSurface(
         errorMessage = null,
         nowMillis = nowMillis,
         initialCalculatorState = initialCalculatorState,
+        initialTypeOverride = initialType,
+        initialExpandedCategoryId = initialExpandedCategoryId,
         modifier = Modifier.fillMaxSize(),
     )
 }

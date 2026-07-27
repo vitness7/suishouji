@@ -21,12 +21,14 @@ import com.oneledger.app.R
 import com.oneledger.app.data.local.AccountEntity
 import com.oneledger.app.data.local.AccountBalanceItem
 import com.oneledger.app.data.local.BudgetEntity
-import com.oneledger.app.data.local.CategoryEntity
 import com.oneledger.app.data.local.SavingsPlanEntity
 import com.oneledger.app.data.local.TransactionListItem
+import com.oneledger.app.data.repository.defaultExpenseCategories
+import com.oneledger.app.data.repository.defaultIncomeCategories
 import com.oneledger.app.domain.model.AccountType
 import com.oneledger.app.domain.model.SavingsMethod
 import com.oneledger.app.domain.model.TransactionType
+import com.oneledger.app.ui.components.AccountSelectionPreviewSurface
 import com.oneledger.app.ui.components.QuickAddPreviewSurface
 import com.oneledger.app.ui.components.AmountCalculatorState
 import com.oneledger.app.ui.components.TransactionDateTimePreviewSurface
@@ -183,9 +185,74 @@ fun QuickAddScreenshot() {
     OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             nowMillis = PREVIEW_NOW,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 餐饮二级分类 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddExpandedCategoryScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialExpandedCategoryId = "expense-food",
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 收入 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddIncomeScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialType = TransactionType.INCOME,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 转账 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddTransferScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        QuickAddPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
+            expenseCategories = state.expenseCategories,
+            incomeCategories = state.incomeCategories,
+            nowMillis = PREVIEW_NOW,
+            initialType = TransactionType.TRANSFER,
+        )
+    }
+}
+
+@PreviewTest
+@Preview(name = "快速记账 · 账户选择 · 浅色", device = PHONE, uiMode = Configuration.UI_MODE_NIGHT_NO, showSystemUi = true)
+@Composable
+fun QuickAddAccountSelectionScreenshot() {
+    val state = previewState()
+    OneLedgerTheme(darkTheme = false) {
+        AccountSelectionPreviewSurface(
+            accounts = state.accounts,
+            accountBalances = state.accountBalances,
         )
     }
 }
@@ -205,6 +272,7 @@ fun QuickAddExpressionScreenshot() {
     OneLedgerTheme(darkTheme = false) {
         QuickAddPreviewSurface(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             nowMillis = PREVIEW_NOW,
@@ -230,6 +298,7 @@ private fun TransactionEditPreview(darkTheme: Boolean) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             QuickAddPreviewSurface(
                 accounts = state.accounts,
+                accountBalances = state.accountBalances,
                 expenseCategories = state.expenseCategories,
                 incomeCategories = state.incomeCategories,
                 nowMillis = PREVIEW_NOW,
@@ -322,29 +391,19 @@ private fun previewState(): OneLedgerUiState {
         ),
     )
 
-    val categories = listOf(
-        category("food", "餐饮", "food", 0xFFFF6B5F, now, bookId),
-        category("shopping", "购物", "shopping", 0xFFFFA94D, now, bookId),
-        category("clothes", "服饰", "shopping", 0xFF9B7BFF, now, bookId),
-        category("daily", "日用", "home", 0xFF57D3A2, now, bookId),
-        category("digital", "数码", "shopping", 0xFF29B6F6, now, bookId),
-        category("transport", "交通", "transport", 0xFF4D7CFE, now, bookId),
-        category("fun", "娱乐", "movie", 0xFFFFC247, now, bookId),
-        category("health", "医疗", "health", 0xFFFF6B8A, now, bookId),
-        category("study", "学习", "study", 0xFF6C8CFF, now, bookId),
-        category("home", "居家", "home", 0xFF57D3A2, now, bookId),
-    )
+    val categories = defaultExpenseCategories(bookId, now)
+    val incomeCategories = defaultIncomeCategories(bookId, now)
 
     val transactions = listOf(
-        transaction("t1", "餐饮", "food", 0xFFFF6B5F, 2_680, "daily-card", "日常卡", "咖啡和早餐", daysAgo(now, 0)),
-        transaction("t2", "交通", "transport", 0xFF4D7CFE, 1_400, "cash", "现金", "地铁", daysAgo(now, 0) - 3_600_000),
-        transaction("t3", "购物", "shopping", 0xFFFFA94D, 18_900, "credit", "信用卡", "生活用品", daysAgo(now, 1)),
-        transaction("t4", "居家", "home", 0xFF57D3A2, 7_500, "daily-card", "日常卡", "网络服务", daysAgo(now, 3)),
+        transaction("t1", "expense-food", "餐饮", "food", 0xFFFF6B5F, 2_680, "daily-card", "日常卡", "咖啡和早餐", daysAgo(now, 0)),
+        transaction("t2", "expense-transport", "交通", "transport", 0xFF4D7CFE, 1_400, "cash", "现金", "地铁", daysAgo(now, 0) - 3_600_000),
+        transaction("t3", "expense-shopping", "购物", "shopping", 0xFFFFA94D, 18_900, "credit", "信用卡", "生活用品", daysAgo(now, 1)),
+        transaction("t4", "expense-housing", "住房", "housing", 0xFF57D3A2, 7_500, "daily-card", "日常卡", "网络服务", daysAgo(now, 3)),
         TransactionListItem(
             id = "t5",
             type = TransactionType.INCOME,
             amountMinor = 520_000,
-            categoryId = "salary",
+            categoryId = "income-salary",
             categoryName = "工资",
             iconKey = "salary",
             colorHex = 0xFF57D3A2,
@@ -379,7 +438,7 @@ private fun previewState(): OneLedgerUiState {
             BudgetEntity(
                 id = "budget-preview-food",
                 bookId = bookId,
-                categoryId = "food",
+                categoryId = "expense-food",
                 periodStart = month.start,
                 periodEnd = month.endExclusive,
                 limitMinor = 100_000,
@@ -389,7 +448,7 @@ private fun previewState(): OneLedgerUiState {
             BudgetEntity(
                 id = "budget-preview-transport",
                 bookId = bookId,
-                categoryId = "transport",
+                categoryId = "expense-transport",
                 periodStart = month.start,
                 periodEnd = month.endExclusive,
                 limitMinor = 80_000,
@@ -428,33 +487,13 @@ private fun previewState(): OneLedgerUiState {
             ),
         ),
         expenseCategories = categories,
-        incomeCategories = listOf(category("salary", "工资", "salary", 0xFF57D3A2, now, bookId, TransactionType.INCOME)),
+        incomeCategories = incomeCategories,
     )
 }
 
-private fun category(
-    id: String,
-    name: String,
-    icon: String,
-    color: Long,
-    now: Long,
-    bookId: String,
-    type: String = TransactionType.EXPENSE,
-) = CategoryEntity(
-    id = id,
-    bookId = bookId,
-    name = name,
-    transactionType = type,
-    iconKey = icon,
-    colorHex = color,
-    sortOrder = 0,
-    isSystem = true,
-    createdAt = now,
-    updatedAt = now,
-)
-
 private fun transaction(
     id: String,
+    categoryId: String,
     category: String,
     icon: String,
     color: Long,
@@ -467,7 +506,7 @@ private fun transaction(
     id = id,
     type = TransactionType.EXPENSE,
     amountMinor = amount,
-    categoryId = icon,
+    categoryId = categoryId,
     categoryName = category,
     iconKey = icon,
     colorHex = color,

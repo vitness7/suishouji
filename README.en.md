@@ -82,7 +82,7 @@ All pages below use the light theme, and every image comes directly from the pro
     <td align="center" width="33%">
       <img src="previews/08-quick-add.png" width="250" alt="Quick-add transaction screen" /><br />
       <strong>Quick add</strong><br />
-      <sub>Expense, income, transfer, and category selection</sub>
+      <sub>Expense/income category trees and transfer account selection</sub>
     </td>
   </tr>
 </table>
@@ -148,7 +148,7 @@ All pages below use the light theme, and every image comes directly from the pro
 | Module | Status | Available today |
 | --- | --- | --- |
 | Ledger | Usable | Month navigation, budget summary, daily entries, editing, soft delete, undo, and quick add |
-| Quick add | Usable | Expense, income, transfer, category, account, note, date/time, expressions, and continuous entry |
+| Quick add | Usable | 26 expense roots, subcategories, 12 income categories, transfer accounts, notes, expressions, and continuous entry |
 | Budgets | Usable | ¥0.00 default, total/category budgets, spent/available/overspent states, and future-month planning |
 | Calendar | Usable | Six-row paging, daily cash flow, festival/lunar labels, date selection, and past/future months |
 | Assets | Partial | Net worth, assets/liabilities, monthly inflow/outflow, and aggregated account balances |
@@ -229,7 +229,7 @@ When the database or DAO changes, also run the device suite on a device that all
 .\gradlew.bat connectedDebugAndroidTest
 ```
 
-After an approved visual change, use `updateDebugScreenshotTest` to refresh the 17 reference images. Normal commits should run `validateDebugScreenshotTest` so visual differences are not overwritten accidentally.
+After an approved visual change, use `updateDebugScreenshotTest` to refresh the 21 reference images. Normal commits should run `validateDebugScreenshotTest` so visual differences are not overwritten accidentally.
 
 ## Documentation
 

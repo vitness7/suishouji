@@ -70,6 +70,24 @@ class LedgerDaoTest {
         assertEquals(listOf("account-a"), dao.observeAccounts("book-a").first().map { it.id })
     }
 
+    @Test
+    fun insertingMissingCategoriesKeepsExistingCategoryEdits() = runBlocking {
+        dao.upsertBook(book("book-a", "A"))
+        val existing = category("category-a", "book-a").copy(iconKey = "user-icon")
+        dao.upsertCategories(listOf(existing))
+
+        dao.insertCategoriesIfAbsent(
+            listOf(
+                existing.copy(iconKey = "default-icon", updatedAt = 2),
+                category("category-b", "book-a"),
+            ),
+        )
+
+        val categories = dao.observeCategories("book-a", TransactionType.EXPENSE).first()
+        assertEquals(listOf("category-a", "category-b"), categories.map { it.id })
+        assertEquals("user-icon", categories.first { it.id == "category-a" }.iconKey)
+    }
+
     private fun book(id: String, name: String) = LedgerBookEntity(
         id = id,
         name = name,

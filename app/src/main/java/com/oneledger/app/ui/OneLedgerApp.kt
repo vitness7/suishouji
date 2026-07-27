@@ -167,6 +167,7 @@ fun OneLedgerApp(viewModel: OneLedgerViewModel) {
     if (showQuickAdd) {
         QuickAddSheet(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             onDismiss = { showQuickAdd = false },
@@ -190,6 +191,7 @@ fun OneLedgerApp(viewModel: OneLedgerViewModel) {
     if (editingTransaction != null) {
         QuickAddSheet(
             accounts = state.accounts,
+            accountBalances = state.accountBalances,
             expenseCategories = state.expenseCategories,
             incomeCategories = state.incomeCategories,
             initialTransaction = editingTransaction,
