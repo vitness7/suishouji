@@ -1,4 +1,4 @@
-package com.oneledger.app.ui.components
+package com.hza.ledger.ui.components
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

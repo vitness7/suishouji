@@ -1,4 +1,4 @@
-package com.oneledger.app.util
+package com.hza.ledger.util
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

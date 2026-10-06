@@ -1,8 +1,8 @@
-package com.oneledger.app.ui.screens
+package com.hza.ledger.ui.screens
 
-import com.oneledger.app.data.local.AccountBalanceItem
-import com.oneledger.app.data.local.AccountEntity
-import com.oneledger.app.domain.model.AccountType
+import com.hza.ledger.data.local.AccountBalanceItem
+import com.hza.ledger.data.local.AccountEntity
+import com.hza.ledger.domain.model.AccountType
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

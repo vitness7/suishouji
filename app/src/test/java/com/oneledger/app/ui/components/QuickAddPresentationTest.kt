@@ -1,9 +1,9 @@
-package com.oneledger.app.ui.components
+package com.hza.ledger.ui.components
 
-import com.oneledger.app.data.local.AccountEntity
-import com.oneledger.app.data.local.CategoryEntity
-import com.oneledger.app.domain.model.AccountType
-import com.oneledger.app.domain.model.TransactionType
+import com.hza.ledger.data.local.AccountEntity
+import com.hza.ledger.data.local.CategoryEntity
+import com.hza.ledger.domain.model.AccountType
+import com.hza.ledger.domain.model.TransactionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

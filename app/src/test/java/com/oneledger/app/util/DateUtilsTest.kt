@@ -1,4 +1,4 @@
-package com.oneledger.app.util
+package com.hza.ledger.util
 
 import java.util.Calendar
 import org.junit.Assert.assertEquals

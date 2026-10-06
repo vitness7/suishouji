@@ -1,6 +1,6 @@
-package com.oneledger.app.data.repository
+package com.hza.ledger.data.repository
 
-import com.oneledger.app.ui.components.quickAddCategoryTree
+import com.hza.ledger.ui.components.quickAddCategoryTree
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

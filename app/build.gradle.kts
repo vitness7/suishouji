@@ -7,16 +7,16 @@ plugins {
 }
 
 android {
-    namespace = "com.oneledger.app"
+    namespace = "com.hza.ledger"
     compileSdk = 36
     experimentalProperties["android.experimental.enableScreenshotTest"] = true
 
     defaultConfig {
-        applicationId = "com.oneledger.app"
+        applicationId = "com.hza.ledger"
         minSdk = 23
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

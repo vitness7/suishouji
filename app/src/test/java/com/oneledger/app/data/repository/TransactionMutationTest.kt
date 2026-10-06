@@ -1,8 +1,8 @@
-package com.oneledger.app.data.repository
+package com.hza.ledger.data.repository
 
-import com.oneledger.app.data.local.TransactionEntity
-import com.oneledger.app.domain.model.NewTransaction
-import com.oneledger.app.domain.model.TransactionType
+import com.hza.ledger.data.local.TransactionEntity
+import com.hza.ledger.domain.model.NewTransaction
+import com.hza.ledger.domain.model.TransactionType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
