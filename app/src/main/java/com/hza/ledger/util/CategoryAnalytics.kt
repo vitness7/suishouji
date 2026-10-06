@@ -98,3 +98,11 @@ fun formatShare(share: Float): String {
         "$rounded%"
     }
 }
+
+/**
+ * 格式化置信度为百分比文本。
+ *
+ * 置信度用整数百分比展示即可，过多小数位会给用户虚假精度错觉。
+ */
+fun formatConfidence(confidence: Float): String =
+    "${Math.round(confidence.coerceIn(0f, 1f) * 100f).toInt()}%"

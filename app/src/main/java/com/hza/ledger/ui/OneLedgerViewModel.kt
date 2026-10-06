@@ -7,8 +7,10 @@ import com.hza.ledger.data.local.AccountEntity
 import com.hza.ledger.data.local.AccountBalanceItem
 import com.hza.ledger.data.local.BudgetEntity
 import com.hza.ledger.data.local.CategoryEntity
+import com.hza.ledger.data.local.PendingTransactionEntity
 import com.hza.ledger.data.local.SavingsPlanEntity
 import com.hza.ledger.data.local.TransactionListItem
+import com.hza.ledger.data.repository.AutoDetectRepository
 import com.hza.ledger.data.repository.LedgerRepository
 import com.hza.ledger.domain.model.NewTransaction
 import com.hza.ledger.domain.model.TransactionType
@@ -27,6 +29,7 @@ data class OneLedgerUiState(
     val savingsPlans: List<SavingsPlanEntity> = emptyList(),
     val expenseCategories: List<CategoryEntity> = emptyList(),
     val incomeCategories: List<CategoryEntity> = emptyList(),
+    val pendingTransactions: List<PendingTransactionEntity> = emptyList(),
 )
 
 private data class LedgerData(
@@ -44,6 +47,7 @@ private data class PlanningData(
 
 class OneLedgerViewModel(
     private val repository: LedgerRepository,
+    private val autoDetectRepository: AutoDetectRepository,
 ) : ViewModel() {
     private val ledgerData = combine(
         repository.accounts,
@@ -62,7 +66,12 @@ class OneLedgerViewModel(
         PlanningData(plans, expenseCategories, incomeCategories)
     }
 
-    val uiState = combine(ledgerData, planningData, repository.activeBookId) { ledger, planning, activeBookId ->
+    val uiState = combine(
+        ledgerData,
+        planningData,
+        repository.activeBookId,
+        autoDetectRepository.pendingTransactions,
+    ) { ledger, planning, activeBookId, pending ->
         OneLedgerUiState(
             activeBookId = activeBookId,
             accounts = ledger.accounts,
@@ -72,12 +81,102 @@ class OneLedgerViewModel(
             savingsPlans = planning.plans,
             expenseCategories = planning.expenseCategories,
             incomeCategories = planning.incomeCategories,
+            pendingTransactions = pending,
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = OneLedgerUiState(),
     )
+
+    // ---------- 自动识别候选操作 ----------
+
+    /**
+     * 确认一笔候选并写入正式账本。
+     *
+     * 账户未指定时，自动选择与识别渠道匹配度最高的账户；
+     * 分类未指定时使用解析器建议的分类。
+     */
+    fun confirmPending(
+        pending: PendingTransactionEntity,
+        categoryId: String? = null,
+        accountId: String? = null,
+    ) {
+        viewModelScope.launch {
+            val bookId = repository.activeBookId.value
+            if (bookId.isBlank()) return@launch
+
+            val resolvedCategory = categoryId
+                ?: pending.suggestedCategoryKey?.takeIf { key ->
+                    // 建议分类必须真实存在于当前账本，否则退回未分类
+                    (if (pending.type == TransactionType.INCOME) {
+                        uiState.value.incomeCategories
+                    } else {
+                        uiState.value.expenseCategories
+                    }).any { it.id == key }
+                }
+
+            val resolvedAccount = accountId
+                ?: pickBestAccount(pending.channel, pending.type)
+                ?: return@launch
+
+            autoDetectRepository.confirm(
+                bookId = bookId,
+                pendingId = pending.id,
+                categoryId = resolvedCategory,
+                accountId = resolvedAccount,
+                type = pending.type,
+                amountMinor = pending.amountMinor,
+                merchant = pending.merchant,
+                note = "",
+                occurredAt = pending.occurredAt,
+            )
+        }
+    }
+
+    /** 按渠道匹配度选账户：数字渠道→支付宝/微信类，银行→储蓄/信用卡。 */
+    private fun pickBestAccount(channel: String, type: String): String? {
+        val accounts = uiState.value.accounts
+        if (accounts.isEmpty()) return null
+        val preferredType = when (channel) {
+            "WECHAT", "ALIPAY" -> "DIGITAL"
+            "BANK_CARD" -> "BANK"
+            "CREDIT_CARD" -> "CREDIT"
+            else -> null
+        }
+        return accounts.firstOrNull { it.type == preferredType }?.id
+            ?: accounts.firstOrNull { it.type != "CREDIT" }?.id
+            ?: accounts.first().id
+    }
+
+    fun discardPending(pending: PendingTransactionEntity) {
+        viewModelScope.launch {
+            val bookId = repository.activeBookId.value
+            if (bookId.isBlank()) return@launch
+            autoDetectRepository.discard(bookId, pending.id)
+        }
+    }
+
+    fun discardAllPending() {
+        viewModelScope.launch {
+            val bookId = repository.activeBookId.value
+            if (bookId.isBlank()) return@launch
+            autoDetectRepository.discardAll(bookId, uiState.value.pendingTransactions.map { it.id })
+        }
+    }
+
+    /** 供设置页演示与自测用。 */
+    fun ingestSampleForTesting(text: String) {
+        viewModelScope.launch {
+            val bookId = repository.activeBookId.value
+            if (bookId.isBlank()) return@launch
+            autoDetectRepository.ingest(
+                bookId = bookId,
+                text = text,
+                sourceKey = "manual:${System.nanoTime()}",
+            )
+        }
+    }
 
     init {
         viewModelScope.launch { repository.ensureSeedData() }
@@ -150,10 +249,11 @@ class OneLedgerViewModel(
 
 class OneLedgerViewModelFactory(
     private val repository: LedgerRepository,
+    private val autoDetectRepository: AutoDetectRepository,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(OneLedgerViewModel::class.java))
-        return OneLedgerViewModel(repository) as T
+        return OneLedgerViewModel(repository, autoDetectRepository) as T
     }
 }

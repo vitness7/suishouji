@@ -1,0 +1,226 @@
+package com.hza.ledger.ui.screens
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.hza.ledger.ui.components.OneLedgerCard
+import com.hza.ledger.ui.components.PressableSurface
+import com.hza.ledger.ui.components.ScreenHeader
+import com.hza.ledger.ui.theme.IncomeMint
+import com.hza.ledger.ui.theme.SavingsAmber
+
+/**
+ * 自动记账权限引导。
+ *
+ * 两项权限都是「用户主动授权」而非「弹窗索要」：
+ * 通知使用权需去系统设置开启，短信权限需运行时同意。
+ * 这里把入口和说明放在一处，避免用户在系统设置里找不到地方。
+ */
+@Composable
+fun AutoDetectSetupScreen(
+    notificationEnabled: Boolean,
+    smsGranted: Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
+        ScreenHeader(
+            title = "自动记账",
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+            action = {
+                PressableSurface(
+                    onClick = onBack,
+                    modifier = Modifier.size(42.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                }
+            },
+        )
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("开启后能做什么", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "微信、支付宝、银行的支付提示会自动读取金额，生成待确认记录。" +
+                            "你点「确认」才会计入账本，识别不准可以忽略。\n\n" +
+                            "全程在本机解析，不联网、不上传，应用也没有网络权限。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            PermissionCard(
+                title = "通知使用权",
+                description = "读取微信、支付宝、银行 App 的支付通知。这是识别的主要来源，识别率最高。",
+                granted = notificationEnabled,
+                actionLabel = "去系统设置开启",
+                onAction = { openNotificationSettings(context) },
+            )
+
+            PermissionCard(
+                title = "短信权限",
+                description = "识别银行发来的交易短信，能覆盖通知里没有的支出。验证码和营销短信会被自动忽略。",
+                granted = smsGranted,
+                actionLabel = "去授权短信权限",
+                onAction = { openAppSettings(context) },
+            )
+
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("隐私说明", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "· 只读取通知与短信的文本内容，不点击、不打开任何其他应用\n" +
+                            "· 解析全部在本机完成，应用未申请网络权限，数据无法上传\n" +
+                            "· 随时可在系统设置中关闭通知使用权，或在应用管理中撤回短信权限\n" +
+                            "· 卸载应用即彻底停止监听",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionCard(
+    title: String,
+    description: String,
+    granted: Boolean,
+    actionLabel: String,
+    onAction: () -> Unit,
+) {
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .background(
+                            (if (granted) IncomeMint else SavingsAmber).copy(alpha = 0.16f),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        if (granted) Icons.Default.CheckCircle else Icons.Default.NotificationsActive,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (granted) IncomeMint else SavingsAmber,
+                    )
+                }
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (granted) "已开启" else "未开启",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (granted) IncomeMint else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!granted) {
+                Spacer(Modifier.height(12.dp))
+                PressableSurface(
+                    onClick = onAction,
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            actionLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 跳转到本应用的「通知使用权」系统设置页。 */
+private fun openNotificationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+        .onFailure {
+            // 部分厂商 ROM 没有这个页面，退回到应用详情页
+            runCatching { context.startActivity(appDetailsIntent(context)) }
+        }
+}
+
+/** 跳转到本应用详情页，用户可在其中授予短信权限。 */
+private fun openAppSettings(context: Context) {
+    runCatching { context.startActivity(appDetailsIntent(context)) }
+}
+
+private fun appDetailsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        .setData(Uri.fromParts("package", context.packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

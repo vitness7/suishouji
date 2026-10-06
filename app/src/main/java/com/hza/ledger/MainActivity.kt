@@ -36,7 +36,10 @@ class MainActivity : ComponentActivity() {
 private fun OneLedgerRoot() {
     val application = androidx.compose.ui.platform.LocalContext.current.applicationContext as OneLedgerApplication
     val viewModel: OneLedgerViewModel = viewModel(
-        factory = OneLedgerViewModelFactory(application.container.repository),
+        factory = OneLedgerViewModelFactory(
+            repository = application.container.repository,
+            autoDetectRepository = application.container.autoDetectRepository,
+        ),
     )
     OneLedgerTheme(darkTheme = isSystemInDarkTheme()) {
         OneLedgerApp(viewModel = viewModel)

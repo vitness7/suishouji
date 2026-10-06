@@ -88,6 +88,10 @@ import com.hza.ledger.ui.screens.AssetsScreen
 import com.hza.ledger.ui.screens.BudgetDetailScreen
 import com.hza.ledger.ui.screens.IncomeExpenseCalendarScreen
 import com.hza.ledger.ui.screens.LedgerScreen
+import com.hza.ledger.ui.screens.AutoDetectSetupScreen
+import com.hza.ledger.ui.screens.PendingScreen
+import com.hza.ledger.autodetect.isNotificationListenerEnabled
+import com.hza.ledger.autodetect.isSmsPermissionGranted
 import com.hza.ledger.ui.screens.SavingsScreen
 import com.hza.ledger.ui.screens.StatisticsScreen
 import com.hza.ledger.ui.theme.BrandBlue
@@ -111,6 +115,8 @@ internal enum class LedgerPage {
     OVERVIEW,
     BUDGET,
     CALENDAR,
+    PENDING,
+    AUTO_SETUP,
 }
 
 @Composable
@@ -159,6 +165,26 @@ fun OneLedgerApp(viewModel: OneLedgerViewModel) {
                         duration = SnackbarDuration.Short,
                     )
                 }
+            }
+        },
+        onConfirmPending = { pending ->
+            viewModel.confirmPending(pending)
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "已记入账本",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        },
+        onDiscardPending = { viewModel.discardPending(it) },
+        onDiscardAllPending = {
+            viewModel.discardAllPending()
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "已忽略全部待确认",
+                    duration = SnackbarDuration.Short,
+                )
             }
         },
         snackbarHostState = snackbarHostState,
@@ -260,6 +286,9 @@ internal fun OneLedgerFrame(
     onLedgerPageChanged: (LedgerPage) -> Unit = {},
     onTransactionClick: (String) -> Unit = {},
     onBudgetSaved: (MonthWindow, String?, Long) -> Unit = { _, _, _ -> },
+    onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
+    onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
+    onDiscardAllPending: () -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -304,6 +333,9 @@ internal fun OneLedgerFrame(
                             onQuickAdd = onQuickAdd,
                             onTransactionClick = onTransactionClick,
                             onBudgetSaved = onBudgetSaved,
+                            onConfirmPending = onConfirmPending,
+                            onDiscardPending = onDiscardPending,
+                            onDiscardAllPending = onDiscardAllPending,
                             nowMillis = nowMillis,
                         )
                         Destination.ASSETS -> AssetsScreen(state, nowMillis = nowMillis)
@@ -383,6 +415,9 @@ private fun LedgerDestination(
     onQuickAdd: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onBudgetSaved: (MonthWindow, String?, Long) -> Unit,
+    onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
+    onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
+    onDiscardAllPending: () -> Unit,
     nowMillis: Long,
 ) {
     var budgetMonthStart by rememberSaveable {
@@ -416,6 +451,7 @@ private fun LedgerDestination(
                 },
                 onCalendarClick = { onLedgerPageChanged(LedgerPage.CALENDAR) },
                 onTransactionClick = onTransactionClick,
+                onPendingClick = { onLedgerPageChanged(LedgerPage.PENDING) },
             )
             LedgerPage.BUDGET -> BudgetDetailScreen(
                 state = state,
@@ -430,6 +466,20 @@ private fun LedgerDestination(
                 onQuickAdd = onQuickAdd,
                 onTransactionClick = onTransactionClick,
                 nowMillis = nowMillis,
+            )
+            LedgerPage.PENDING -> PendingScreen(
+                pending = state.pendingTransactions,
+                categoryNames = (state.expenseCategories + state.incomeCategories)
+                    .associate { it.id to it.name },
+                onConfirm = onConfirmPending,
+                onDiscard = onDiscardPending,
+                onDiscardAll = onDiscardAllPending,
+                onOpenSetup = { onLedgerPageChanged(LedgerPage.AUTO_SETUP) },
+            )
+            LedgerPage.AUTO_SETUP -> AutoDetectSetupScreen(
+                notificationEnabled = isNotificationListenerEnabled(),
+                smsGranted = isSmsPermissionGranted(),
+                onBack = { onLedgerPageChanged(LedgerPage.PENDING) },
             )
         }
     }

@@ -134,3 +134,44 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         )
     }
 }
+
+/**
+ * 新增自动识别候选表。纯新增，不触碰任何既有表，因此旧数据完全不受影响。
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `pending_transactions` (
+                `id` TEXT NOT NULL,
+                `bookId` TEXT NOT NULL,
+                `type` TEXT NOT NULL,
+                `amountMinor` INTEGER NOT NULL,
+                `merchant` TEXT NOT NULL,
+                `note` TEXT NOT NULL,
+                `channel` TEXT NOT NULL,
+                `suggestedCategoryKey` TEXT,
+                `confidence` REAL NOT NULL,
+                `sourceKey` TEXT NOT NULL,
+                `rawText` TEXT NOT NULL,
+                `occurredAt` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`),
+                FOREIGN KEY(`bookId`) REFERENCES `ledger_books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_pending_transactions_bookId` " +
+                "ON `pending_transactions` (`bookId`)",
+        )
+        db.execSQL(
+            "CREATE INDEX IF NOT EXISTS `index_pending_transactions_occurredAt` " +
+                "ON `pending_transactions` (`occurredAt`)",
+        )
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_pending_transactions_sourceKey` " +
+                "ON `pending_transactions` (`sourceKey`)",
+        )
+    }
+}

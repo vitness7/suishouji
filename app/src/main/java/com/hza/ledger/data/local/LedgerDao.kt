@@ -80,6 +80,40 @@ interface LedgerDao {
     @Query("SELECT * FROM savings_plans WHERE bookId = :bookId AND isArchived = 0 ORDER BY createdAt DESC")
     fun observeSavingsPlans(bookId: String): Flow<List<SavingsPlanEntity>>
 
+    // ---------- 自动识别候选 ----------
+
+    @Query("SELECT * FROM pending_transactions WHERE bookId = :bookId ORDER BY occurredAt DESC, createdAt DESC")
+    fun observePendingTransactions(bookId: String): Flow<List<PendingTransactionEntity>>
+
+    @Query("SELECT COUNT(*) FROM pending_transactions WHERE bookId = :bookId")
+    fun observePendingCount(bookId: String): Flow<Int>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM pending_transactions WHERE sourceKey = :sourceKey)")
+    suspend fun pendingSourceExists(sourceKey: String): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPending(pending: PendingTransactionEntity): Long
+
+    @Query("DELETE FROM pending_transactions WHERE bookId = :bookId AND id = :id")
+    suspend fun deletePending(bookId: String, id: String)
+
+    @Query("DELETE FROM pending_transactions WHERE bookId = :bookId AND id IN (:ids)")
+    suspend fun deletePendingAll(bookId: String, ids: List<String>)
+
+    /**
+     * 确认入账的原子操作：写入正式流水并删除候选记录。
+     * 必须放在同一事务里，避免"流水已写但候选未删"导致重复记账。
+     */
+    @Transaction
+    suspend fun confirmPending(
+        bookId: String,
+        pendingId: String,
+        transaction: TransactionEntity,
+    ) {
+        insertTransaction(transaction)
+        deletePending(bookId, pendingId)
+    }
+
     @Query(
         """
         SELECT

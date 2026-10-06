@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -81,6 +82,7 @@ fun LedgerScreen(
     nowMillis: Long = System.currentTimeMillis(),
     onBudgetClick: (MonthWindow) -> Unit = {},
     onCalendarClick: () -> Unit = {},
+    onPendingClick: () -> Unit = {},
     onTransactionClick: (String) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
@@ -198,6 +200,15 @@ fun LedgerScreen(
                 remainingDays = monthWindow.remainingDayCount(nowMillis),
                 onClick = { onBudgetClick(monthWindow) },
             )
+        }
+
+        if (state.pendingTransactions.isNotEmpty()) {
+            item {
+                PendingEntryCard(
+                    count = state.pendingTransactions.size,
+                    onClick = onPendingClick,
+                )
+            }
         }
 
         if (visibleTransactions.isEmpty()) {
@@ -416,6 +427,65 @@ private fun TransactionRow(
                     transaction.accountName,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 待确认入口卡片。
+ *
+ * 仅在存在候选时显示，用醒目但不打扰的方式提示用户去处理，
+ * 避免积压导致用户失去对自动记账的信任。
+ */
+@Composable
+private fun PendingEntryCard(count: Int, onClick: () -> Unit) {
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        PressableSurface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            color = SavingsAmber.copy(alpha = 0.10f),
+            modifier = Modifier.padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .background(SavingsAmber.copy(alpha = 0.18f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = SavingsAmber,
+                    )
+                }
+                Column(
+                    Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f),
+                ) {
+                    Text(
+                        "$count 笔待确认",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        "识别到自动记账的记录，确认后入账",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
