@@ -72,6 +72,9 @@ import com.hza.ledger.ui.theme.IncomeMint
 import com.hza.ledger.ui.theme.OneLedgerMotion
 import com.hza.ledger.util.MoneyFormatter
 import com.hza.ledger.util.MonthWindow
+import com.hza.ledger.util.PeriodComparison
+import com.hza.ledger.util.calculateCategoryShares
+import com.hza.ledger.util.formatShare
 import com.hza.ledger.util.inclusiveLocalDayCount
 import com.hza.ledger.util.localYear
 import java.util.Calendar
@@ -84,6 +87,8 @@ private data class CategoryTotal(
     val name: String,
     val amountMinor: Long,
     val color: Color,
+    val share: Float,
+    val count: Int,
 )
 
 @Composable
@@ -106,17 +111,40 @@ fun StatisticsScreen(
             earliestTransactionAt = earliestTransactionAt,
         ).coerceAtLeast(1)
     }
-    val categoryTotals = transactions
-        .filter { it.type == TransactionType.EXPENSE }
-        .groupBy { it.categoryName }
-        .map { (_, items) ->
-            CategoryTotal(
-                name = items.first().categoryName,
-                amountMinor = items.sumOf { it.amountMinor },
-                color = colorFromLong(items.first().colorHex),
-            )
-        }
-        .sortedByDescending { it.amountMinor }
+    val expenseTransactions = transactions.filter { it.type == TransactionType.EXPENSE }
+    val categoryShares = remember(expenseTransactions) {
+        calculateCategoryShares(expenseTransactions.map { it.categoryName to it.amountMinor })
+    }
+    val categoryTotals = categoryShares.map { share ->
+        val color = expenseTransactions
+            .firstOrNull { it.categoryName == share.name }
+            ?.let { colorFromLong(it.colorHex) }
+            ?: MaterialTheme.colorScheme.primary
+        CategoryTotal(
+            name = share.name,
+            amountMinor = share.amountMinor,
+            color = color,
+            share = share.share,
+            count = share.count,
+        )
+    }
+
+    // 环比：取上一个等长周期的支出总额
+    val previousExpense = remember(selectedRange, now) {
+        val currentStart = start
+        val span = (now - currentStart).coerceAtLeast(1L)
+        val previousEnd = currentStart - 1L
+        val previousStart = previousEnd - span
+        state.transactions
+            .filter {
+                it.type == TransactionType.EXPENSE &&
+                    it.occurredAt in previousStart..previousEnd
+            }
+            .sumOf { it.amountMinor }
+    }
+    val expenseComparison = remember(expense, previousExpense) {
+        PeriodComparison(current = expense, previous = previousExpense)
+    }
 
     LaunchedEffect(Unit) {
         listState.scrollToItem(0)
@@ -190,6 +218,40 @@ fun StatisticsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MetricCard("最大支出", MoneyFormatter.format(transactions.maxExpense()), ExpenseCoral, Modifier.weight(1f))
                     MetricCard("记录笔数", "${transactions.size} 笔", IncomeMint, Modifier.weight(1f))
+                }
+            }
+        }
+
+        item {
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "支出环比",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            expenseComparison.describe("花", MoneyFormatter::format),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        expenseComparison.formatRate(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = if (expenseComparison.delta == 0L) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else if (expenseComparison.isIncrease) {
+                            ExpenseCoral
+                        } else {
+                            IncomeMint
+                        },
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
         }
@@ -349,8 +411,22 @@ private fun CategoryBar(category: CategoryTotal, max: Long) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(9.dp).background(category.color, CircleShape))
                 Text(category.name, modifier = Modifier.padding(start = 9.dp), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    " · ${category.count} 笔",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Text(MoneyFormatter.format(category.amountMinor), style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    formatShare(category.share),
+                    modifier = Modifier.padding(end = 9.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = category.color,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(MoneyFormatter.format(category.amountMinor), style = MaterialTheme.typography.titleMedium)
+            }
         }
         Spacer(Modifier.height(6.dp))
         LinearProgressIndicator(
