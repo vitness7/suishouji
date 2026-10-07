@@ -1,5 +1,8 @@
 package com.hza.ledger.autodetect
 
+/** 经营支出分类 ID，与 DefaultCategoryCatalog 中的定义保持一致。 */
+const val BUSINESS_CATEGORY_KEY = "expense-business"
+
 /**
  * 自动记账解析引擎。纯 Kotlin，无 Android 依赖，可完整单元测试。
  *
@@ -89,11 +92,32 @@ private val RULES: List<Rule> = listOf(
     // 分类建议：先匹配"用途明确"的规则（如加油站、房租），
     // 这些比通用的"消费/支付"更能代表真实分类，因此排在前面。
     // key 均为 DefaultCategoryCatalog 中的真实分类 ID。
+
+    // ⚠️ 经营支出必须排在最前面。
+    // 电商文案里常同时出现「拼多多」「进货」等词，若放在购物规则之后，
+    // 「拼多多 采购付款 ¥1280」会被判成 expense-shopping（生活购物），
+    // 经营流水就污染了生活统计。
+    rule(
+        ParseDirection.UNKNOWN,
+        ParseChannel.UNKNOWN,
+        "expense-business",
+        "进货", "采购", "货款", "拿货", "备货", "保证金", "押金",
+        "推广费", "直通车", "万相台", "广告费", "推广服务费",
+        "生意参谋", "生意经", "店小二", "技术服务费", "平台扣点", "扣点",
+        "仓储费", "仓储物流", "快递代发", "包装费", "样品", "赠品",
+        "网商贷", "生意贷", "周转资金", "店铺租金", "店铺费用",
+    ),
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-housing", "房租", "物业费", "水费", "电费", "燃气费", "宽带费"),
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-transport", "加油", "加油站", "停车费", "高速通行", "代扣车费", "打车", "滴滴", "地铁", "公交", "高铁", "机票"),
 
     // 按商户关键词猜分类（方向未定，仅供分类建议）
-    rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-food", "餐", "food", "外卖", "餐厅", "饭店", "咖啡", "奶茶", "便利店", "火锅", "烧烤", "快餐", "小吃", "面馆", "食堂", "烘焙", "面包", "蛋糕", "茶饮", "酒楼"),
+    rule(
+        ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-food",
+        "餐", "food", "外卖", "餐厅", "饭店", "咖啡", "奶茶", "便利店", "火锅", "烧烤",
+        "快餐", "小吃", "面馆", "食堂", "烘焙", "面包", "蛋糕", "茶饮", "酒楼",
+        // 常见连锁品牌：用户账单里出现的是店名而非品类词，只写「咖啡」会漏判
+        "星巴克", "瑞幸", "麦当劳", "肯德基", "海底捞", "喜茶", "奈雪", "蜜雪", "必胜客",
+    ),
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-shopping", "购物", "商城", "淘宝", "京东", "拼多多", "服饰", "数码"),
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-housing", "房租", "物业", "水电", "燃气", "宽带"),
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-health", "医院", "药房", "药店", "门诊", "体检"),
@@ -153,11 +177,15 @@ private val SYMBOL_PRESENT = Regex("""[¥￥]""")
  * @param text 原始文本（通知标题+内容或短信正文）
  * @return 解析成功返回结果，无法可靠解析返回 null
  */
-fun parseTransactionText(text: String): ParsedTransaction? {
+fun parseTransactionText(text: String, packageName: String? = null): ParsedTransaction? {
     val normalized = text.trim()
     if (normalized.isEmpty()) return null
 
     val lower = normalized.lowercase()
+
+    // 0. 营收类通知不自动入账。
+    //    店铺收到的货款是经营收入，混进个人账本会彻底毁掉消费统计。
+    if (EcommerceClassifier.isRevenue(normalized)) return null
 
     // 1. 营销文本直接拒绝
     if (REJECT_PATTERNS.any { lower.contains(it) }) return null
@@ -190,6 +218,15 @@ fun parseTransactionText(text: String): ParsedTransaction? {
             categoryKey = rule.categoryKey
             categoryPriority = priority
         }
+    }
+
+    // 电商场景覆盖：经营支出由专用分类器判定。
+    // 放在规则匹配之后是为了让「房租」这类强语义词仍能生效 ——
+    // 在千牛里交房租不该被算成经营支出。
+    val businessCost = EcommerceClassifier.isBusinessCost(lower, packageName)
+    if (businessCost) {
+        categoryKey = BUSINESS_CATEGORY_KEY
+        categoryPriority = -1
     }
 
     // 4. 完全没有交易语义特征 -> 放弃

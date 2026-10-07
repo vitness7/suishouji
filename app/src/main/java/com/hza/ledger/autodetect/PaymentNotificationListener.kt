@@ -50,6 +50,7 @@ class PaymentNotificationListener : NotificationListenerService() {
         if (packageName == applicationContext.packageName) return
 
         val appLabel = packageLabel(packageName)
+        val isBusinessApp = EcommerceClassifier.isBusinessPackage(packageName)
         val text = extractText(notification)
 
         if (text.isNullOrBlank()) {
@@ -64,18 +65,35 @@ class PaymentNotificationListener : NotificationListenerService() {
             return
         }
 
-        val parsed = parseTransactionText(text)
+        // 营收单独处理：店铺收到的货款不该自动入账，需要给用户明确提示
+        if (EcommerceClassifier.isRevenue(text)) {
+            AutoDetectDiagnostics.record(
+                RecentNotification(
+                    appLabel = appLabel,
+                    rawText = text.take(120),
+                    result = "识别为店铺营收，不自动入账",
+                    parsed = false,
+                ),
+            )
+            return
+        }
+
+        val parsed = parseTransactionText(text, packageName)
 
         // 无论成功与否都记录，便于用户对照原始通知排查
+        val isBusiness = parsed != null &&
+            EcommerceClassifier.isBusinessCost(text, packageName)
+
         AutoDetectDiagnostics.record(
             RecentNotification(
                 appLabel = appLabel,
                 rawText = text.take(120),
-                result = if (parsed != null) {
-                    "识别为${directionLabel(parsed.direction)} ${MoneyFormatter.format(parsed.amountMinor)}" +
+                result = when {
+                    parsed == null -> "未能识别为交易"
+                    isBusiness -> "识别为经营支出 ${MoneyFormatter.format(parsed.amountMinor)}" +
                         "（可信度 ${(parsed.confidence * 100).toInt()}%）"
-                } else {
-                    "未能识别为交易"
+                    else -> "识别为${directionLabel(parsed.direction)} ${MoneyFormatter.format(parsed.amountMinor)}" +
+                        "（可信度 ${(parsed.confidence * 100).toInt()}%）"
                 },
                 parsed = parsed != null,
             ),

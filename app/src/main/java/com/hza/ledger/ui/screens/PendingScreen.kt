@@ -358,6 +358,7 @@ private fun categoryIconFor(key: String?): String = when (key) {
     "expense-fun" -> "fun"
     "expense-study" -> "study"
     "expense-daily" -> "daily"
+    "expense-business" -> "office"
     "income-salary" -> "salary"
     else -> "other"
 }

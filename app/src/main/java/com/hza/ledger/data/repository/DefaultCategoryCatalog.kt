@@ -38,7 +38,11 @@ internal fun defaultExpenseCategories(
     add(expense("expense-vacation", "度假", "vacation", 0xFF57D3A2, 22, bookId, now))
     add(expense("expense-wine", "烟酒", "wine", 0xFFFFA94D, 23, bookId, now))
     add(expense("expense-lottery", "彩票", "lottery", 0xFFFF7AA2, 24, bookId, now))
-    add(expense("expense-other", "其他", "other", 0xFF8992A3, 25, bookId, now))
+    // 经营支出：电商从业者的进货、保证金、推广费等。
+    // 独立分类的意义是让生活支出统计不被经营流水污染 —— 两者量级差异巨大，
+    // 混在一起会让「餐饮占比」这类指标彻底失真。
+    add(expense("expense-business", "经营支出", "business", 0xFF6C8CFF, 25, bookId, now))
+    add(expense("expense-other", "其他", "other", 0xFF8992A3, 26, bookId, now))
 
     add(expenseChild("expense-food-meals", "三餐", "meal-three", "expense-food", 0, 0xFFFF6B5F, bookId, now))
     add(expenseChild("expense-food-snack", "零食", "snack", "expense-food", 1, 0xFFFF6B5F, bookId, now))
