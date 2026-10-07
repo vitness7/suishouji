@@ -119,8 +119,26 @@ internal enum class Destination(
     STATISTICS("统计", Icons.Default.BarChart),
 }
 
-internal enum class LedgerPage {
-    OVERVIEW,
+/** 账户表单数据，用于把界面输入与 ViewModel 调用解耦。 */
+internal data class AccountDraft(
+    val id: String?,
+    val name: String,
+    val subtitle: String,
+    val type: String,
+    val openingBalanceMinor: Long,
+    val includeInNetWorth: Boolean,
+)
+
+/** 存钱目标表单数据。 */
+internal data class SavingsDraft(
+    val id: String?,
+    val name: String,
+    val method: String,
+    val targetMinor: Long,
+    val colorHex: Long,
+)
+
+internal enum class LedgerPage {    OVERVIEW,
     BUDGET,
     CALENDAR,
     PENDING,
@@ -231,6 +249,80 @@ fun OneLedgerApp(
             destination = Destination.LEDGER
             ledgerPage = LedgerPage.DIAGNOSTICS
         },
+        onSaveAccountRequest = { draft, onDone ->
+            viewModel.saveAccount(
+                id = draft.id,
+                name = draft.name,
+                subtitle = draft.subtitle,
+                type = draft.type,
+                openingBalanceMinor = draft.openingBalanceMinor,
+                includeInNetWorth = draft.includeInNetWorth,
+                onDone = { saved ->
+                    onDone(saved)
+                    if (saved != null) {
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (draft.id == null) "账户已创建" else "账户已更新",
+                            )
+                        }
+                    }
+                },
+            )
+        },
+        onDeleteAccountRequest = { id, onResult ->
+            viewModel.deleteAccount(id) { result ->
+                onResult(result)
+                if (result.isSuccess) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("账户已删除")
+                    }
+                }
+            }
+        },
+        onAccountUsageCountRequest = { id, onResult ->
+            viewModel.accountUsageCount(id, onResult)
+        },
+        onSaveSavingsRequest = { draft, onDone ->
+            viewModel.saveSavingsPlan(
+                id = draft.id,
+                name = draft.name,
+                method = draft.method,
+                targetMinor = draft.targetMinor,
+                colorHex = draft.colorHex,
+                startAt = System.currentTimeMillis(),
+                endAt = null,
+                onDone = { saved ->
+                    onDone(saved)
+                    if (saved != null) {
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                if (draft.id == null) "目标已创建" else "目标已更新",
+                            )
+                        }
+                    }
+                },
+            )
+        },
+        onDeleteSavingsRequest = { id, onDone ->
+            viewModel.deleteSavingsPlan(id) {
+                onDone()
+                scope.launch {
+                    snackbarHostState.showSnackbar("目标已删除")
+                }
+            }
+        },
+        onDepositSavingsRequest = { planId, amount, accountId, note, onResult ->
+            viewModel.depositToSavingsPlan(planId, amount, accountId, note) { result ->
+                onResult(result)
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (result.isSuccess) "已存入" else "存入失败：${result.exceptionOrNull()?.message ?: "未知错误"}",
+                    )
+                }
+            }
+        },
         snackbarHostState = snackbarHostState,
     )
 
@@ -335,6 +427,13 @@ internal fun OneLedgerFrame(
     onDiscardAllPending: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenDiagnostics: () -> Unit = {},
+    onSaveAccountRequest: (AccountDraft, (String?) -> Unit) -> Unit = { _, _ -> },
+    onDeleteAccountRequest: (String, (Result<Unit>) -> Unit) -> Unit = { _, _ -> },
+    onAccountUsageCountRequest: (String, (Long) -> Unit) -> Unit = { _, _ -> },
+    onSaveSavingsRequest: (SavingsDraft, (String?) -> Unit) -> Unit = { _, _ -> },
+    onDeleteSavingsRequest: (String, () -> Unit) -> Unit = { _, _ -> },
+    onDepositSavingsRequest: (String, Long, String, String, (Result<Unit>) -> Unit) -> Unit =
+        { _, _, _, _, _ -> },
     nowMillis: Long = System.currentTimeMillis(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -384,10 +483,50 @@ internal fun OneLedgerFrame(
                             onDiscardAllPending = onDiscardAllPending,
                             onOpenSettings = onOpenSettings,
                             onOpenDiagnostics = onOpenDiagnostics,
+                            onSaveAccountRequest = onSaveAccountRequest,
+                            onDeleteAccountRequest = onDeleteAccountRequest,
+                            onAccountUsageCountRequest = onAccountUsageCountRequest,
+                            onSaveSavingsRequest = onSaveSavingsRequest,
+                            onDeleteSavingsRequest = onDeleteSavingsRequest,
+                            onDepositSavingsRequest = onDepositSavingsRequest,
                             nowMillis = nowMillis,
                         )
-                        Destination.ASSETS -> AssetsScreen(state, nowMillis = nowMillis)
-                        Destination.SAVINGS -> SavingsScreen(state)
+                        Destination.ASSETS -> AssetsScreen(
+                            state = state,
+                            nowMillis = nowMillis,
+                            onSaveAccount = { id, name, subtitle, type, balance, includeInNetWorth, onDone ->
+                                onSaveAccountRequest(
+                                    AccountDraft(
+                                        id = id,
+                                        name = name,
+                                        subtitle = subtitle,
+                                        type = type,
+                                        openingBalanceMinor = balance,
+                                        includeInNetWorth = includeInNetWorth,
+                                    ),
+                                    onDone,
+                                )
+                            },
+                            onDeleteAccount = onDeleteAccountRequest,
+                            onAccountUsageCount = onAccountUsageCountRequest,
+                        )
+                        Destination.SAVINGS -> SavingsScreen(
+                            state = state,
+                            onSavePlan = { id, name, method, targetMinor, colorHex, onDone ->
+                                onSaveSavingsRequest(
+                                    SavingsDraft(
+                                        id = id,
+                                        name = name,
+                                        method = method,
+                                        targetMinor = targetMinor,
+                                        colorHex = colorHex,
+                                    ),
+                                    onDone,
+                                )
+                            },
+                            onDeletePlan = onDeleteSavingsRequest,
+                            onDeposit = onDepositSavingsRequest,
+                        )
                         Destination.STATISTICS -> StatisticsScreen(state, nowMillis = nowMillis)
                     }
                 }
@@ -469,6 +608,12 @@ private fun LedgerDestination(
     onDiscardAllPending: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onSaveAccountRequest: (AccountDraft, (String?) -> Unit) -> Unit,
+    onDeleteAccountRequest: (String, (Result<Unit>) -> Unit) -> Unit,
+    onAccountUsageCountRequest: (String, (Long) -> Unit) -> Unit,
+    onSaveSavingsRequest: (SavingsDraft, (String?) -> Unit) -> Unit,
+    onDeleteSavingsRequest: (String, () -> Unit) -> Unit,
+    onDepositSavingsRequest: (String, Long, String, String, (Result<Unit>) -> Unit) -> Unit,
     nowMillis: Long,
 ) {
     var budgetMonthStart by rememberSaveable {

@@ -206,6 +206,156 @@ class OfflineLedgerRepository(
         )
     }
 
+    override suspend fun saveAccount(
+        id: String?,
+        name: String,
+        subtitle: String,
+        type: String,
+        openingBalanceMinor: Long,
+        includeInNetWorth: Boolean,
+    ): String {
+        val bookId = activeBookId.value
+        val now = System.currentTimeMillis()
+        val accountId = id ?: "account-${UUID.randomUUID()}"
+
+        // 排序号取同类已有最大值 +1，保证新建的账户排在列表末尾
+        val nextSortOrder = dao.getAccounts(bookId)
+            .filter { it.type == type && (id == null || it.id != id) }
+            .maxOfOrNull { it.sortOrder + 1 }
+            ?: 0
+
+        dao.upsertAccounts(
+            listOf(
+                AccountEntity(
+                    id = accountId,
+                    bookId = bookId,
+                    name = name,
+                    subtitle = subtitle,
+                    type = type,
+                    colorHex = accountColor(type),
+                    openingBalanceMinor = openingBalanceMinor,
+                    includeInNetWorth = includeInNetWorth,
+                    sortOrder = nextSortOrder,
+                    createdAt = now,
+                    updatedAt = now,
+                    deletedAt = null,
+                ),
+            ),
+        )
+        return accountId
+    }
+
+    override suspend fun deleteAccount(id: String): Result<Unit> = runCatching {
+        val bookId = activeBookId.value
+        // 仍有流水引用该账户时不允许删除，否则历史账目会指向不存在的账户
+        val usage = dao.countTransactionsUsingAccount(bookId, id)
+        require(usage == 0L) { "该账户下还有 $usage 笔记录，请先处理相关账单" }
+        dao.softDeleteAccount(bookId, id, System.currentTimeMillis())
+    }
+
+    override suspend fun accountUsageCount(id: String): Long =
+        dao.countTransactionsUsingAccount(activeBookId.value, id)
+
+    override suspend fun saveSavingsPlan(
+        id: String?,
+        name: String,
+        method: String,
+        targetMinor: Long,
+        colorHex: Long,
+        startAt: Long,
+        endAt: Long?,
+    ): String {
+        val bookId = activeBookId.value
+        val now = System.currentTimeMillis()
+        val planId = id ?: "saving-${UUID.randomUUID()}"
+
+        val existing = dao.getSavingsPlans(bookId).firstOrNull { it.id == planId }
+        dao.upsertSavingsPlan(
+            SavingsPlanEntity(
+                id = planId,
+                bookId = bookId,
+                name = name,
+                method = method,
+                targetMinor = targetMinor,
+                savedMinor = existing?.savedMinor ?: 0L,
+                colorHex = colorHex,
+                startAt = startAt,
+                endAt = endAt,
+                isArchived = false,
+                createdAt = existing?.createdAt ?: now,
+                updatedAt = now,
+            ),
+        )
+        return planId
+    }
+
+    /**
+     * 存入一笔。
+     *
+     * 关键：更新进度与写入支出流水必须同时成功或同时失败，
+     * 否则会出现「进度涨了但账上没这笔钱」或反之的错账。
+     */
+    override suspend fun depositToSavingsPlan(
+        planId: String,
+        amountMinor: Long,
+        accountId: String,
+        occurredAt: Long,
+        note: String,
+    ) {
+        val bookId = activeBookId.value
+        val now = System.currentTimeMillis()
+
+        val plan = dao.getSavingsPlans(bookId).firstOrNull { it.id == planId }
+            ?: error("存钱目标不存在")
+
+        // 存入意味着这笔钱从某个账户离开，按支出记账才能让账户余额与实际一致
+        val categoryId = dao.getCategories(bookId, TransactionType.EXPENSE)
+            .firstOrNull { it.id == "expense-savings" }
+            ?.id
+            ?: dao.getCategories(bookId, TransactionType.EXPENSE).firstOrNull()?.id
+
+        dao.runInTransaction {
+            dao.upsertSavingsPlan(
+                plan.copy(
+                    savedMinor = plan.savedMinor + amountMinor,
+                    updatedAt = now,
+                ),
+            )
+            dao.insertTransaction(
+                TransactionEntity(
+                    id = "txn-${UUID.randomUUID()}",
+                    bookId = bookId,
+                    type = TransactionType.EXPENSE,
+                    amountMinor = amountMinor,
+                    categoryId = categoryId,
+                    accountId = accountId,
+                    toAccountId = null,
+                    merchant = plan.name,
+                    note = note.ifBlank { "存入「${plan.name}」" },
+                    occurredAt = occurredAt,
+                    relatedTransactionId = planId,
+                    reimbursementState = "NONE",
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+        }
+    }
+
+    override suspend fun deleteSavingsPlan(id: String) {
+        dao.deleteSavingsPlan(activeBookId.value, id)
+    }
+
+    /** 各账户类型的默认配色，与分类体系保持一致的视觉语言。 */
+    private fun accountColor(type: String): Long = when (type) {
+        AccountType.CASH -> 0xFFFFC247L
+        AccountType.BANK -> 0xFF4D7CFEL
+        AccountType.CREDIT -> 0xFFFF6B5FL
+        AccountType.DIGITAL -> 0xFF57D3A2L
+        AccountType.INVESTMENT -> 0xFF9B7BFFL
+        else -> 0xFF8992A3L
+    }
+
     private suspend fun validateReferences(bookId: String, transaction: NewTransaction) {
         require(dao.accountExists(bookId, transaction.accountId)) { "账户不属于当前账本" }
         if (transaction.type == TransactionType.TRANSFER) {

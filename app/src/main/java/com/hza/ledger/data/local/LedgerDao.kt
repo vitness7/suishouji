@@ -11,6 +11,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface LedgerDao {
+    /**
+     * 以事务方式执行任意块。
+     *
+     * 用于「更新存钱进度 + 写入支出流水」这类必须同时成功的操作，
+     * 避免只成功一半导致账目与进度不一致。
+     */
+    @Transaction
+    suspend fun runInTransaction(block: suspend () -> Unit) {
+        block()
+    }
+
     @Query("SELECT id FROM ledger_books WHERE isDefault = 1 ORDER BY updatedAt DESC LIMIT 1")
     suspend fun getDefaultBookId(): String?
 
@@ -22,6 +33,10 @@ interface LedgerDao {
 
     @Query("SELECT * FROM accounts WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY sortOrder, name")
     fun observeAccounts(bookId: String): Flow<List<AccountEntity>>
+
+    /** 一次性取账户列表，供写入场景排序/查重使用（Flow 没有 value 属性）。 */
+    @Query("SELECT * FROM accounts WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY sortOrder, name")
+    suspend fun getAccounts(bookId: String): List<AccountEntity>
 
     @Query(
         """
@@ -57,6 +72,16 @@ interface LedgerDao {
     )
     fun observeCategories(bookId: String, type: String): Flow<List<CategoryEntity>>
 
+    /** 一次性取分类列表，供写入场景查找默认分类用。 */
+    @Query(
+        """
+        SELECT * FROM categories
+        WHERE bookId = :bookId AND transactionType = :type AND deletedAt IS NULL
+        ORDER BY sortOrder, name
+        """,
+    )
+    suspend fun getCategories(bookId: String, type: String): List<CategoryEntity>
+
     @Query("SELECT * FROM budgets WHERE bookId = :bookId ORDER BY periodStart DESC")
     fun observeBudgets(bookId: String): Flow<List<BudgetEntity>>
 
@@ -79,6 +104,10 @@ interface LedgerDao {
 
     @Query("SELECT * FROM savings_plans WHERE bookId = :bookId AND isArchived = 0 ORDER BY createdAt DESC")
     fun observeSavingsPlans(bookId: String): Flow<List<SavingsPlanEntity>>
+
+    /** 一次性取存钱计划列表，供写入场景查重用。 */
+    @Query("SELECT * FROM savings_plans WHERE bookId = :bookId AND isArchived = 0 ORDER BY createdAt DESC")
+    suspend fun getSavingsPlans(bookId: String): List<SavingsPlanEntity>
 
     // ---------- 自动识别候选 ----------
 
@@ -162,6 +191,23 @@ interface LedgerDao {
     @Upsert
     suspend fun upsertAccounts(accounts: List<AccountEntity>)
 
+    /** 软删除账户：保留历史流水关联，仅标记删除。 */
+    @Query(
+        "UPDATE accounts SET deletedAt = :deletedAt, updatedAt = :deletedAt " +
+            "WHERE bookId = :bookId AND id = :id",
+    )
+    suspend fun softDeleteAccount(bookId: String, id: String, deletedAt: Long)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM accounts WHERE bookId = :bookId AND id = :accountId AND deletedAt IS NULL)")
+    suspend fun hasAccountEnabled(bookId: String, accountId: String): Boolean
+
+    /** 统计账户被有效流水引用的次数，用于删除前校验。 */
+    @Query(
+        "SELECT COUNT(*) FROM transactions WHERE bookId = :bookId AND deletedAt IS NULL " +
+            "AND (accountId = :accountId OR toAccountId = :accountId)",
+    )
+    suspend fun countTransactionsUsingAccount(bookId: String, accountId: String): Long
+
     @Upsert
     suspend fun upsertCategories(categories: List<CategoryEntity>)
 
@@ -173,6 +219,9 @@ interface LedgerDao {
 
     @Upsert
     suspend fun upsertSavingsPlan(plan: SavingsPlanEntity)
+
+    @Query("DELETE FROM savings_plans WHERE bookId = :bookId AND id = :id")
+    suspend fun deleteSavingsPlan(bookId: String, id: String)
 
     @Insert
     suspend fun insertTransaction(transaction: TransactionEntity)

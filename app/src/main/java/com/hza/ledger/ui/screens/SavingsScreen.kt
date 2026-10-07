@@ -18,9 +18,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.WaterDrop
@@ -30,6 +33,10 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +44,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hza.ledger.data.local.SavingsPlanEntity
+import com.hza.ledger.ui.components.SavingsDepositDialog
+import com.hza.ledger.ui.components.SavingsPlanEditorDialog
 import com.hza.ledger.domain.model.SavingsMethod
 import com.hza.ledger.ui.OneLedgerUiState
 import com.hza.ledger.ui.components.OneLedgerCard
@@ -55,7 +64,27 @@ import com.hza.ledger.util.shortDate
 fun SavingsScreen(
     state: OneLedgerUiState,
     modifier: Modifier = Modifier,
+    onSavePlan: (
+        id: String?,
+        name: String,
+        method: String,
+        targetMinor: Long,
+        colorHex: Long,
+        onDone: (String?) -> Unit,
+    ) -> Unit = { _, _, _, _, _, _ -> },
+    onDeletePlan: (String, () -> Unit) -> Unit = { _, _ -> },
+    onDeposit: (String, Long, String, String, (Result<Unit>) -> Unit) -> Unit = { _, _, _, _, _ -> },
 ) {
+    // 弹窗状态
+    var editorTarget by remember { mutableStateOf<SavingsPlanEntity?>(null) }
+    var showEditor by remember { mutableStateOf(false) }
+    var depositTarget by remember { mutableStateOf<SavingsPlanEntity?>(null) }
+    var defaultMethod by remember { mutableStateOf(SavingsMethod.FIXED) }
+
+    // 账户下拉数据：id + 显示名
+    val accountOptions = remember(state.accounts) {
+        state.accounts.map { it.id to it.name }
+    }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -66,12 +95,16 @@ fun SavingsScreen(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             action = {
                 PressableSurface(
-                    onClick = {},
+                    onClick = {
+                        defaultMethod = SavingsMethod.FIXED
+                        editorTarget = null
+                        showEditor = true
+                    },
                     modifier = Modifier.size(42.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.MoreHoriz, contentDescription = "更多")
+                        Icon(Icons.Default.Add, contentDescription = "新建目标")
                     }
                 }
             },
@@ -91,12 +124,65 @@ fun SavingsScreen(
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MethodCard("定额存钱", Icons.Default.CalendarMonth, Color(0xFF7E8B9A), Modifier.weight(1f))
-                    MethodCard("灵活存钱", Icons.Default.WaterDrop, BrandBlue, Modifier.weight(1f))
+                    MethodCard(
+                        title = "定额存钱",
+                        icon = Icons.Default.CalendarMonth,
+                        color = Color(0xFF7E8B9A),
+                        onClick = {
+                            defaultMethod = SavingsMethod.FIXED
+                            editorTarget = null
+                            showEditor = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    MethodCard(
+                        title = "固定金额",
+                        icon = Icons.Default.Lock,
+                        color = BrandBlue,
+                        onClick = {
+                            defaultMethod = SavingsMethod.FIXED
+                            editorTarget = null
+                            showEditor = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MethodCard("52 周计划", Icons.Default.Timeline, Violet, Modifier.weight(1f))
-                    MethodCard("365 天计划", Icons.Default.Savings, IncomeMint, Modifier.weight(1f))
+                    MethodCard(
+                        title = "灵活金额",
+                        icon = Icons.Default.WaterDrop,
+                        color = BrandBlue,
+                        onClick = {
+                            defaultMethod = SavingsMethod.FLEXIBLE
+                            editorTarget = null
+                            showEditor = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MethodCard(
+                        title = "52 周计划",
+                        icon = Icons.Default.Timeline,
+                        color = Violet,
+                        onClick = {
+                            defaultMethod = SavingsMethod.WEEK_52
+                            editorTarget = null
+                            showEditor = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    MethodCard(
+                        title = "365 天计划",
+                        icon = Icons.Default.Savings,
+                        color = IncomeMint,
+                        onClick = {
+                            defaultMethod = SavingsMethod.DAY_365
+                            editorTarget = null
+                            showEditor = true
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -114,7 +200,15 @@ fun SavingsScreen(
                 } else {
                     Column {
                         state.savingsPlans.forEachIndexed { index, plan ->
-                            SavingsPlanRow(plan)
+                            SavingsPlanRow(
+                                plan = plan,
+                                onDeposit = { depositTarget = plan },
+                                onEdit = {
+                                    defaultMethod = plan.method
+                                    editorTarget = plan
+                                    showEditor = true
+                                },
+                            )
                             if (index != state.savingsPlans.lastIndex) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(horizontal = 16.dp),
@@ -128,6 +222,55 @@ fun SavingsScreen(
         }
         }
     }
+
+    if (showEditor) {
+        SavingsPlanEditorDialog(
+            existing = editorTarget,
+            showDelete = editorTarget != null,
+            onDismiss = {
+                showEditor = false
+                editorTarget = null
+            },
+            onSave = { name, method, targetMinor, colorHex ->
+                onSavePlan(
+                    editorTarget?.id,
+                    name,
+                    method,
+                    targetMinor,
+                    colorHex,
+                ) { saved ->
+                    if (saved != null) {
+                        showEditor = false
+                        editorTarget = null
+                    }
+                }
+            },
+            onDelete = editorTarget?.let { target ->
+                {
+                    onDeletePlan(target.id) {
+                        showEditor = false
+                        editorTarget = null
+                    }
+                }
+            },
+        )
+    }
+
+    depositTarget?.let { plan ->
+        SavingsDepositDialog(
+            plan = plan,
+            accounts = accountOptions,
+            onDismiss = { depositTarget = null },
+            onDeposit = { amountMinor, accountId, note ->
+                onDeposit(plan.id, amountMinor, accountId, note) {
+                    // 成功才关闭，失败要让用户能看到提示并重试
+                    if (it.isSuccess) {
+                        depositTarget = null
+                    }
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -135,9 +278,14 @@ private fun MethodCard(
     title: String,
     icon: ImageVector,
     color: Color,
-    modifier: Modifier,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
-    PressableSurface(onClick = {}, modifier = modifier, shape = RoundedCornerShape(18.dp)) {
+    PressableSurface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+    ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -160,7 +308,11 @@ private fun MethodCard(
 }
 
 @Composable
-private fun SavingsPlanRow(plan: SavingsPlanEntity) {
+private fun SavingsPlanRow(
+    plan: SavingsPlanEntity,
+    onDeposit: () -> Unit = {},
+    onEdit: () -> Unit = {},
+) {
     val progress = if (plan.targetMinor <= 0) 0f else (plan.savedMinor.toFloat() / plan.targetMinor).coerceIn(0f, 1f)
     val color = colorFromLong(plan.colorHex)
     Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
@@ -198,7 +350,44 @@ private fun SavingsPlanRow(plan: SavingsPlanEntity) {
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = "查看计划", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // 存入与编辑：原先这里只有一个不可点的箭头图标
+            PressableSurface(
+                onClick = onDeposit,
+                shape = RoundedCornerShape(12.dp),
+                color = color,
+                modifier = Modifier.padding(end = 8.dp),
+            ) {
+                Box(
+                    Modifier
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "存入",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+            }
+            PressableSurface(
+                onClick = onEdit,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Box(
+                    Modifier
+                        .size(36.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "编辑目标",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(14.dp))

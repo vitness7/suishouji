@@ -23,10 +23,16 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +43,7 @@ import com.hza.ledger.data.local.AccountBalanceItem
 import com.hza.ledger.domain.model.AccountType
 import com.hza.ledger.domain.model.TransactionType
 import com.hza.ledger.ui.OneLedgerUiState
+import com.hza.ledger.ui.components.AccountEditorDialog
 import com.hza.ledger.ui.components.AccountGlyph
 import com.hza.ledger.ui.components.LabelValue
 import com.hza.ledger.ui.components.OneLedgerCard
@@ -56,6 +63,17 @@ fun AssetsScreen(
     state: OneLedgerUiState,
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
+    onSaveAccount: (
+        id: String?,
+        name: String,
+        subtitle: String,
+        type: String,
+        openingBalanceMinor: Long,
+        includeInNetWorth: Boolean,
+        onDone: (String?) -> Unit,
+    ) -> Unit = { _, _, _, _, _, _, _ -> },
+    onDeleteAccount: (String, (Result<Unit>) -> Unit) -> Unit = { _, _ -> },
+    onAccountUsageCount: (String, (Long) -> Unit) -> Unit = { _, _ -> },
 ) {
     val balances = state.accountBalances.associate { it.accountId to it.currentBalanceMinor }
     val netWorthSummary = calculateNetWorth(state.accounts, state.accountBalances)
@@ -64,6 +82,11 @@ fun AssetsScreen(
     val netWorth = netWorthSummary.netWorthMinor
     val currentMonth = remember(nowMillis) { MonthWindow.current(nowMillis) }
     val monthTransactions = state.transactions.filter { it.occurredAt.isIn(currentMonth) }
+
+    // 账户编辑弹窗：null 表示新建，非null 表示编辑对应账户
+    var editorTarget by remember { mutableStateOf<AccountEntity?>(null) }
+    var showEditor by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = modifier
@@ -75,7 +98,7 @@ fun AssetsScreen(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             action = {
                 PressableSurface(
-                    onClick = {},
+                    onClick = { editorTarget = null },
                     modifier = Modifier.size(42.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
@@ -173,7 +196,14 @@ fun AssetsScreen(
                 } else {
                     Column {
                         state.accounts.forEachIndexed { index, account ->
-                            AccountRow(account, balances[account.id] ?: account.openingBalanceMinor)
+                            AccountRow(
+                                account = account,
+                                balance = balances[account.id] ?: account.openingBalanceMinor,
+                                onClick = {
+                                    editorTarget = account
+                                    showEditor = true
+                                },
+                            )
                             if (index != state.accounts.lastIndex) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(start = 74.dp),
@@ -186,6 +216,64 @@ fun AssetsScreen(
             }
         }
         }
+    }
+
+    if (showEditor) {
+        AccountEditorDialog(
+            existing = editorTarget,
+            showDelete = editorTarget != null,
+            onDismiss = {
+                showEditor = false
+                editorTarget = null
+                deleteError = null
+            },
+            onSave = { name, subtitle, type, balance, includeInNetWorth ->
+                onSaveAccount(
+                    editorTarget?.id,
+                    name,
+                    subtitle,
+                    type,
+                    balance,
+                    includeInNetWorth,
+                ) { savedId ->
+                    if (savedId != null) {
+                        showEditor = false
+                        editorTarget = null
+                    }
+                }
+            },
+            onDelete = editorTarget?.let { target ->
+                {
+                    // 删除前先查引用数量：有流水时明确告知用户，不静默失败
+                    onAccountUsageCount(target.id) { usage ->
+                        if (usage > 0L) {
+                            deleteError = "该账户下还有 $usage 笔记录，请先处理相关账单"
+                        } else {
+                            onDeleteAccount(target.id) { result ->
+                                if (result.isSuccess) {
+                                    showEditor = false
+                                    editorTarget = null
+                                    deleteError = null
+                                } else {
+                                    deleteError = result.exceptionOrNull()?.message ?: "删除失败"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+    }
+
+    deleteError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { deleteError = null },
+            title = { Text("无法删除") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { deleteError = null }) { Text("知道了") }
+            },
+        )
     }
 }
 
@@ -233,10 +321,11 @@ private fun MiniAssetCard(
 }
 
 @Composable
-private fun AccountRow(account: AccountEntity, balance: Long) {
+private fun AccountRow(account: AccountEntity, balance: Long, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -230,6 +230,100 @@ class OneLedgerViewModel(
         }
     }
 
+    // ---------- 账户管理 ----------
+
+    fun saveAccount(
+        id: String?,
+        name: String,
+        subtitle: String,
+        type: String,
+        openingBalanceMinor: Long,
+        includeInNetWorth: Boolean,
+        onDone: (String?) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                repository.saveAccount(
+                    id = id,
+                    name = name,
+                    subtitle = subtitle,
+                    type = type,
+                    openingBalanceMinor = openingBalanceMinor,
+                    includeInNetWorth = includeInNetWorth,
+                )
+            }.onSuccess { onDone(it) }
+                .onFailure { onDone(null) }
+        }
+    }
+
+    fun deleteAccount(id: String, onResult: (Result<Unit>) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(repository.deleteAccount(id))
+        }
+    }
+
+    fun accountUsageCount(id: String, onResult: (Long) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(repository.accountUsageCount(id))
+        }
+    }
+
+    // ---------- 存钱计划 ----------
+
+    fun saveSavingsPlan(
+        id: String?,
+        name: String,
+        method: String,
+        targetMinor: Long,
+        colorHex: Long,
+        startAt: Long,
+        endAt: Long?,
+        onDone: (String?) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                repository.saveSavingsPlan(
+                    id = id,
+                    name = name,
+                    method = method,
+                    targetMinor = targetMinor,
+                    colorHex = colorHex,
+                    startAt = startAt,
+                    endAt = endAt,
+                )
+            }.onSuccess { onDone(it) }
+                .onFailure { onDone(null) }
+        }
+    }
+
+    fun depositToSavingsPlan(
+        planId: String,
+        amountMinor: Long,
+        accountId: String,
+        note: String,
+        onDone: (Result<Unit>) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                repository.depositToSavingsPlan(
+                    planId = planId,
+                    amountMinor = amountMinor,
+                    accountId = accountId,
+                    occurredAt = System.currentTimeMillis(),
+                    note = note,
+                )
+            }
+            onDone(result)
+        }
+    }
+
+    fun deleteSavingsPlan(id: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.deleteSavingsPlan(id)
+            onDone()
+        }
+    }
+
     private fun runMutation(
         onComplete: (Result<Unit>) -> Unit,
         mutation: suspend () -> Unit,
