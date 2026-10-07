@@ -63,6 +63,7 @@ internal fun accountTypeName(type: String): String = when (type) {
     AccountType.DIGITAL -> "数字账户"
     AccountType.CREDIT -> "信用账户"
     AccountType.INVESTMENT -> "投资账户"
+    AccountType.SALARY -> "工资卡"
     else -> "其他"
 }
 
@@ -73,5 +74,7 @@ internal fun accountTypeColor(type: String) = when (type) {
     AccountType.DIGITAL -> IncomeMint
     AccountType.CREDIT -> ExpenseCoral
     AccountType.INVESTMENT -> Violet
+    // 工资卡用绿色系，与「收入」的语义呼应，一眼看出这是进钱的地方
+    AccountType.SALARY -> Color(0xFF2E9E6B)
     else -> Color(0xFF8992A3)
 }

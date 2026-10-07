@@ -56,8 +56,20 @@ private val RULES: List<Rule> = listOf(
     // 明确的收入
     rule(ParseDirection.INCOME, ParseChannel.ALIPAY, "income-other", "收款", "收到款", "已收款", "转入"),
     rule(ParseDirection.INCOME, ParseChannel.WECHAT, "income-other", "微信支付收款", "收款到"),
-    rule(ParseDirection.INCOME, ParseChannel.BANK_CARD, "income-salary", "工资", "入账", "存款利息"),
+    // 工资类关键词要收全：各家银行文案差异很大，
+    // 只匹配「工资」会漏掉用「薪资」「薪酬」「代发」等说法的短信。
+    rule(
+        ParseDirection.INCOME,
+        ParseChannel.BANK_CARD,
+        "income-salary",
+        "工资", "薪资", "薪酬", "薪水", "月薪", "代发工资", "代发薪酬",
+        "代扣代发", "工资到账", "工资发放", "代发款项", "代发薪酬款",
+    ),
     rule(ParseDirection.INCOME, ParseChannel.CREDIT_CARD, "income-other", "额度返还", "退款到"),
+    // 存款利息单独归类，不归工资。
+    // ⚠️ 「入账」太通用（普通转账也叫入账），绝不能放进工资规则，
+    // 否则任何一笔入账都会被误判成工资。
+    rule(ParseDirection.INCOME, ParseChannel.BANK_CARD, "income-fund", "存款利息", "结息", "利息收入"),
     rule(ParseDirection.INCOME, ParseChannel.BANK_CARD, "income-other", "退款", "退回"),
 
     // 明确的支出（渠道判定）
@@ -157,6 +169,19 @@ private val AMOUNT_BARE = Regex("""(\d+(?:\.\d{1,2})?)""")
 
 /** 卡号/订单号等超长数字，绝不能当金额。 */
 private val LONG_DIGITS = Regex("""\d{7,}""")
+
+/**
+ * 强制带两位小数的金额（无货币符号、无"元"字）。
+ *
+ * 用途：部分银行短信省略货币符号，如「工资到账 8500.00」。
+ *
+ * ⚠️ 安全的理由：要求**恰好两位小数**且前面无数字。
+ * `8500.00` 这种形态不可能是卡号或日期片段，
+ * 而 `1234`（无小数）仍会被拒绝，避免误判。
+ *
+ * 注意整数部分不设上限：实际存在 6 位整数的金额（123456.78）。
+ */
+private val AMOUNT_WITH_DECIMAL_ONLY = Regex("""(?<![\d.])\d+\.\d{2}(?![\d])""")
 
 /** 日期中的日/月，用于排除 "8月6日" 这类干扰。 */
 private val DATE_NOISE = Regex("""\d{1,2}\s*月\s*\d{1,2}\s*日""")
@@ -261,7 +286,6 @@ private fun extractAmountMinor(text: String): Long? {
     // 剥离干扰：卡号、订单号、日期
     val cleaned = CARD_TAIL_NOISE.replace(text, " ")
         .replace(DATE_NOISE, " ")
-        .replace(LONG_DIGITS, " ")
 
     // 1. 带货币符号最可信
     AMOUNT_WITH_SYMBOL.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
@@ -269,10 +293,18 @@ private fun extractAmountMinor(text: String): Long? {
     // 2. 带"元"字次之
     AMOUNT_WITH_YUAN.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
 
-    // 3. 纯数字：仅在文本已出现货币符号时才可信，
+    // 3. 无符号的纯小数金额（部分银行工资短信会省略「元」字，如「工资到账 8500.00」）。
+    //    ⚠️ 必须在 LONG_DIGITS 剥离**之前**判断：
+    //    金额 123456.78 的整数部分有 6 位，若先被卡号规则剥离会连小数点一起吃掉，
+    //    金额放大百倍 —— 这是灾难性错账。
+    AMOUNT_WITH_DECIMAL_ONLY.find(cleaned)?.let { return toMinor(it.groupValues[0]) }
+
+    // 4. 纯数字：仅在文本已出现货币符号时才可信，
     //    否则「尾号 1234」这类数字会被误当金额。
     if (SYMBOL_PRESENT.containsMatchIn(cleaned)) {
-        AMOUNT_BARE.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
+        // 剥离超长数字（卡号/订单号）后再取，避免把卡号当金额
+        AMOUNT_BARE.find(cleaned.replace(LONG_DIGITS, " "))
+            ?.let { return toMinor(it.groupValues[1]) }
     }
 
     return null
