@@ -23,6 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.SystemUpdateAlt
+import androidx.compose.material.icons.filled.Warning
+import com.hza.ledger.util.CrashReporter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -121,6 +123,52 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // 崩溃提示：闪退类问题必须有运行时信息，否则只能靠猜
+            val crash = remember { CrashReporter.lastCrash() }
+            if (crash != null) {
+                OneLedgerCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = ExpenseCoral,
+                            )
+                            Text(
+                                "上次打开时发生过闪退",
+                                modifier = Modifier.padding(start = 8.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = ExpenseCoral,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            crash.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "线程 ${crash.threadName}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "截图这段信息发给开发者，能极大加快定位。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        SecondaryButton(
+                            text = "我已记录，关闭提示",
+                            onClick = { CrashReporter.clear() },
+                        )
+                    }
+                }
+            }
+
             // ---- 版本信息 ----
             OneLedgerCard(Modifier.fillMaxWidth()) {
                 Row(

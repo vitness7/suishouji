@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -98,7 +99,10 @@ fun AssetsScreen(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
             action = {
                 PressableSurface(
-                    onClick = { editorTarget = null },
+                    onClick = {
+                        editorTarget = null
+                        showEditor = true
+                    },
                     modifier = Modifier.size(42.dp),
                     shape = RoundedCornerShape(14.dp),
                 ) {
@@ -180,6 +184,16 @@ fun AssetsScreen(
                     color = ExpenseCoral,
                     modifier = Modifier.weight(1f),
                 )
+            }
+        }
+
+        // 按账户类型分别汇总：现金、银行卡、数字账户等各算各的
+        item {
+            val byType = remember(state.accounts, state.accountBalances) {
+                summarizeByAccountType(state.accounts, state.accountBalances)
+            }
+            if (byType.isNotEmpty()) {
+                AccountTypeSummaryCard(byType)
             }
         }
 
@@ -362,4 +376,94 @@ private fun String.accountTypeLabel(): String = when (this) {
     AccountType.CREDIT -> "信用账户"
     AccountType.DIGITAL -> "数字钱包"
     else -> "资产账户"
+}
+
+/**
+ * 账户类型汇总卡片。
+ *
+ * 展示每种账户类型的独立小计，让用户一眼看清「现金有多少、银行卡有多少」。
+ * 负数（信用卡欠款）单独标红，与资产区分开。
+ */
+@Composable
+private fun AccountTypeSummaryCard(summaries: List<AccountTypeSummary>) {
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(vertical = 16.dp)) {
+            Text(
+                "按类型汇总",
+                modifier = Modifier.padding(horizontal = 18.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "不同类型的金额分开统计",
+                modifier = Modifier.padding(horizontal = 18.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            summaries.forEach { summary ->
+                val isLiability = summary.totalMinor < 0
+                val typeColor = accountTypeColor(summary.type)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(10.dp)
+                            .background(typeColor, CircleShape),
+                    )
+                    Column(
+                        Modifier
+                            .padding(start = 12.dp)
+                            .weight(1f),
+                    ) {
+                        Text(
+                            accountTypeName(summary.type),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            "${summary.count} 个账户",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        MoneyFormatter.format(summary.totalMinor),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isLiability) ExpenseCoral else typeColor,
+                    )
+                }
+            }
+
+            // 各类型合计，方便与净资产对账
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 18.dp),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.65f),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "类型合计",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    MoneyFormatter.format(summaries.sumOf { it.totalMinor }),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
 }

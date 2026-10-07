@@ -96,6 +96,8 @@ fun SavingsPlanEditorDialog(
             existing?.let { (it.targetMinor / 100.0).toString().removeSuffix(".0") }.orEmpty(),
         )
     }
+    // 注意：必须得到非空的 Int。indexOfFirst 未命中时返回 -1，
+    // 若推断成 Int?，后续 PLAN_COLORS[safeColorIndex] 会抛 NPE 导致闪退。
     var colorIndex by remember {
         mutableStateOf(
             existing?.let { plan ->
@@ -103,6 +105,8 @@ fun SavingsPlanEditorDialog(
             } ?: 0,
         )
     }
+    // 兜底：任何异常索引都归零，防止数组越界
+    val safeColorIndex = colorIndex.coerceIn(0, PLAN_COLORS.lastIndex)
 
     val targetMinor = formatMinorInput(targetText)
     val canSave = name.isNotBlank() && targetMinor != null && targetMinor > 0
@@ -176,11 +180,11 @@ fun SavingsPlanEditorDialog(
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         PLAN_COLORS.forEachIndexed { index, hex ->
-                            val selected = index == colorIndex
+                            val selected = index == safeColorIndex
                             Box(
                                 modifier = Modifier
                                     .size(if (selected) 32.dp else 26.dp)
-                                    .background(Color(hex.toULong()), CircleShape)
+                                    .background(colorFromLong(hex), CircleShape)
                                     .clickable { colorIndex = index },
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -200,7 +204,7 @@ fun SavingsPlanEditorDialog(
         confirmButton = {
             TextButton(
                 enabled = canSave,
-                onClick = { onSave(name.trim(), method, targetMinor ?: 0L, PLAN_COLORS[colorIndex]) },
+                onClick = { onSave(name.trim(), method, targetMinor ?: 0L, PLAN_COLORS[safeColorIndex]) },
             ) {
                 Text(if (existing == null) "创建" else "保存", fontWeight = FontWeight.Medium)
             }
