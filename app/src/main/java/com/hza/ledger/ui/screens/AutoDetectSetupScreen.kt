@@ -105,15 +105,36 @@ fun AutoDetectSetupScreen(
 
             PermissionCard(
                 title = "通知使用权",
-                description = "读取微信、支付宝、银行 App 的支付通知。这是识别的主要来源，识别率最高。",
+                description = "读取微信、支付宝、银行 App 的支付通知。这是识别的主要来源，识别率最高。\n\n" +
+                    "vivo/OPPO 等手机：在上方「设备管理」里找「**关联启动**」并打开\n" +
+                    "小米/红米：设置 → 应用设置 → 应用管理 → 权限管理 → 通知使用权\n" +
+                    "华为：设置 → 应用 → 应用启动管理 → 随手记自动记账",
                 granted = notificationEnabled,
-                actionLabel = "去系统设置开启",
+                actionLabel = "去开启（vivo 找「关联启动」）",
                 onAction = { openNotificationSettings(context) },
             )
 
+            // vivo 等国产 ROM 的额外必做项：自启动 + 后台高耗电
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("若识别偶尔失效，检查这几项", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "· 同一个「设备管理」页面里，把「自启动」也打开\n" +
+                            "· 「安装未知应用」打开（安装更新包时需要）\n" +
+                            "· 设置 → 电池 → 后台耗电管理 → 随手记 → 选「允许后台高耗电」\n" +
+                            "· 多任务界面里把随手记卡片锁定，避免一键清理时被清掉\n" +
+                            "· 关掉「睡眠模式」，否则夜间会冻结应用",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             PermissionCard(
                 title = "短信权限",
-                description = "识别银行发来的交易短信，能覆盖通知里没有的支出。验证码和营销短信会被自动忽略。",
+                description = "识别银行发来的交易短信，能覆盖通知里没有的支出。验证码和营销短信会被自动忽略。\n\n" +
+                    "在权限列表里点「短信」→ 选「允许」。",
                 granted = smsGranted,
                 actionLabel = "去授权短信权限",
                 onAction = { openAppSettings(context) },
@@ -261,14 +282,31 @@ private fun PermissionCard(
 }
 
 /** 跳转到本应用的「通知使用权」系统设置页。 */
+/**
+ * 跳转到本应用详情页。
+ *
+ * 为什么不用 `ACTION_NOTIFICATION_LISTENER_SETTINGS`：
+ * vivo（OriginOS）等国产 ROM 对该标准 action 支持很差，会跳到空白页或直接被拦截。
+ * 实测 vivo X300 上必须先进入「应用信息」页，再由用户点「设备管理」里的
+ * 「关联启动」（vivo 对应 Android 的通知使用权）。
+ * 因此**直接跳应用详情页是兼容性最好的做法**。
+ */
 private fun openNotificationSettings(context: Context) {
-    val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { context.startActivity(intent) }
-        .onFailure {
-            // 部分厂商 ROM 没有这个页面，退回到应用详情页
-            runCatching { context.startActivity(appDetailsIntent(context)) }
-        }
+    val intents = listOf(
+        // 首选：应用详情页（vivo/华为/小米等国产 ROM 均可从此进入）
+        appDetailsIntent(context),
+        // 备选：标准 action，原生 Android 可直达
+        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+    )
+
+    for (intent in intents) {
+        val launched = runCatching {
+            context.startActivity(intent)
+            true
+        }.getOrDefault(false)
+        if (launched) return
+    }
 }
 
 /** 跳转到本应用详情页，用户可在其中授予短信权限。 */
