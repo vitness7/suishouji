@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import androidx.core.content.ContextCompat
 
 /**
@@ -31,15 +32,74 @@ object AppContextHolder {
         get() = requireNotNull(appContext) { "上下文尚未初始化，请在 Application.onCreate 中调用 init" }
 }
 
-/** 用户是否已在系统设置中授予本应用「通知使用权」。 */
-fun isNotificationListenerEnabled(): Boolean {
-    val enabled = Settings.Secure.getString(
-        AppContextHolder.context.contentResolver,
-        "enabled_notification_listeners",
-    ) ?: return false
+/**
+ * 用户是否已授予本应用「通知使用权」。
+ *
+ * 采用**双通道检测**，因为不同 ROM 对此的实现差异很大：
+ * 1. 读系统设置 `enabled_notification_listeners`（标准做法，AOSP 与多数 ROM 适用）
+ * 2. 兜底：看监听服务是否已成功连接过（`onListenerConnected` 才会置位）。
+ *    只有系统真正认可了监听器才会回调该方法，因此这是最权威的信号。
+ *
+ * 只用第 1 条会在部分国产 ROM 上误报未授权（配置被写到了非标准位置）。
+ */
+fun isNotificationListenerEnabled(): Boolean =
+    readFromSettings() || ListenerConnectionProbe.connected
 
-    val flatten = enabled.split(":").mapNotNull(ComponentName::unflattenFromString)
-    return flatten.any { it == LISTENER_COMPONENT }
+/** 通道一：读系统设置里的已授权组件列表。 */
+private fun readFromSettings(): Boolean {
+    val enabled = runCatching {
+        Settings.Secure.getString(
+            AppContextHolder.context.contentResolver,
+            "enabled_notification_listeners",
+        )
+    }.getOrNull() ?: return false
+
+    return enabled.split(":")
+        .mapNotNull(ComponentName::unflattenFromString)
+        .any { it == LISTENER_COMPONENT }
+}
+
+/**
+ * 监听服务连接状态的记录。
+ *
+ * 由 [PaymentNotificationListener] 在 onListenerConnected / onListenerDisconnected 中维护。
+ *
+ * 为什么需要额外这一层：
+ * `onListenerConnected` 只在进程存活时回调，冷启动应用后这个内存值会丢。
+ * 但系统其实仍在授权状态 —— 所以这里写入 SharedPreferences 做持久化，
+ * 让应用重启后仍能正确显示「已授权」，不至于让用户误以为失败而反复折腾。
+ */
+object ListenerConnectionProbe {
+    private const val PREFS = "listener_state"
+    private const val KEY_AUTHORIZED = "authorized_once"
+
+    @Volatile
+    var connected: Boolean = false
+        internal set
+
+    /** 冷启动时从持久化记录恢复。 */
+    fun restore() {
+        connected = runCatching {
+            AppContextHolder.context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean(KEY_AUTHORIZED, false)
+        }.getOrDefault(false)
+    }
+
+    internal fun markConnected() {
+        connected = true
+        runCatching {
+            AppContextHolder.context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_AUTHORIZED, true)
+                .apply()
+        }
+    }
+
+    internal fun markDisconnected() {
+        connected = false
+    }
 }
 
 /** 短信权限是否已授予。 */

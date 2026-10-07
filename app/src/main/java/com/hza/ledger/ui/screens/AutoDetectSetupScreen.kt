@@ -105,24 +105,30 @@ fun AutoDetectSetupScreen(
 
             PermissionCard(
                 title = "通知使用权",
-                description = "读取微信、支付宝、银行 App 的支付通知。这是识别的主要来源，识别率最高。\n\n" +
-                    "vivo/OPPO 等手机：在上方「设备管理」里找「**关联启动**」并打开\n" +
-                    "小米/红米：设置 → 应用设置 → 应用管理 → 权限管理 → 通知使用权\n" +
-                    "华为：设置 → 应用 → 应用启动管理 → 随手记自动记账",
+                description = "读取微信、支付宝、银行 App 的支付通知。这是识别的主要来源。\n\n" +
+                    "⚠️ 注意：「关联启动」和「自启动」都不等于通知使用权。\n" +
+                    "它们属于后台保活分类，管的是「允许被唤醒」。\n" +
+                    "通知使用权是独立入口，点下面的按钮直达。",
                 granted = notificationEnabled,
-                actionLabel = "去开启（vivo 找「关联启动」）",
+                actionLabel = "打开通知使用权列表",
                 onAction = { openNotificationSettings(context) },
             )
 
-            // vivo 等国产 ROM 的额外必做项：自启动 + 后台高耗电
+            // vivo 等国产 ROM 的额外必做项：这些都不是通知使用权，但会影响稳定性
             OneLedgerCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("若识别偶尔失效，检查这几项", style = MaterialTheme.typography.titleMedium)
+                    Text("辅助设置（vivo / OPPO 等建议开启）", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "这些不是通知使用权的替代品，但不开会导致识别时灵时不灵",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "· 同一个「设备管理」页面里，把「自启动」也打开\n" +
-                            "· 「安装未知应用」打开（安装更新包时需要）\n" +
+                        "· 应用详情页「设备管理」里的「自启动」和「关联启动」都打开\n" +
                             "· 设置 → 电池 → 后台耗电管理 → 随手记 → 选「允许后台高耗电」\n" +
+                            "· i管家 → 省电管理 → 把随手记加入加速白名单\n" +
                             "· 多任务界面里把随手记卡片锁定，避免一键清理时被清掉\n" +
                             "· 关掉「睡眠模式」，否则夜间会冻结应用",
                         style = MaterialTheme.typography.bodyMedium,
@@ -281,23 +287,19 @@ private fun PermissionCard(
     }
 }
 
-/** 跳转到本应用的「通知使用权」系统设置页。 */
 /**
- * 跳转到本应用详情页。
+ * 跳转到系统的「通知使用权」列表页。
  *
- * 为什么不用 `ACTION_NOTIFICATION_LISTENER_SETTINGS`：
- * vivo（OriginOS）等国产 ROM 对该标准 action 支持很差，会跳到空白页或直接被拦截。
- * 实测 vivo X300 上必须先进入「应用信息」页，再由用户点「设备管理」里的
- * 「关联启动」（vivo 对应 Android 的通知使用权）。
- * 因此**直接跳应用详情页是兼容性最好的做法**。
+ * 优先级说明：
+ * - `ACTION_NOTIFICATION_LISTENER_SETTINGS` 是 AOSP 标准 action，
+ *   vivo/OPPO 等国产 ROM **是支持的**，会打开系统自带的通知使用权列表。
+ *   前面 v1.2.1 误以为国产 ROM 不支持而改为跳应用详情页，属于判断失误，已纠正。
+ * - 应用详情页仅作为最后兜底：部分 ROM 定制过跳转时会失败。
  */
 private fun openNotificationSettings(context: Context) {
     val intents = listOf(
-        // 首选：应用详情页（vivo/华为/小米等国产 ROM 均可从此进入）
+        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
         appDetailsIntent(context),
-        // 备选：标准 action，原生 Android 可直达
-        Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 
     for (intent in intents) {

@@ -2,6 +2,7 @@ package com.hza.ledger
 
 import android.app.Application
 import com.hza.ledger.autodetect.AppContextHolder
+import com.hza.ledger.autodetect.ListenerConnectionProbe
 import com.hza.ledger.data.local.OneLedgerDatabase
 import com.hza.ledger.data.repository.AutoDetectRepository
 import com.hza.ledger.data.repository.LedgerRepository
@@ -15,6 +16,8 @@ class OneLedgerApplication : Application() {
         // 监听器可能早于任何界面启动，这里必须完成容器初始化
         OneLedgerApplicationHolder.container = container
         AppContextHolder.init(this)
+        // 冷启动时恢复监听器的授权状态，否则用户会看到"未授权"而误以为设置失败
+        ListenerConnectionProbe.restore()
     }
 }
 

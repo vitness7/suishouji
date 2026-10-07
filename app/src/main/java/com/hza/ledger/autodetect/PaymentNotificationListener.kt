@@ -30,11 +30,15 @@ class PaymentNotificationListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        // 这是最可靠的"已授权"信号：只有系统真正认可了监听器才会回调。
+        // 比读 Settings.Secure 的配置更准，国产 ROM 常把配置写在非标准位置。
+        ListenerConnectionProbe.markConnected()
         AutoDetectDiagnostics.recordStatus(ListenerStatus.CONNECTED)
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        ListenerConnectionProbe.markDisconnected()
         AutoDetectDiagnostics.recordStatus(ListenerStatus.DISCONNECTED)
     }
 
