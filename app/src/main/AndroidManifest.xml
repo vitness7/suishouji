@@ -9,10 +9,21 @@
       需用户在系统设置中手动授权，可在系统设置随时撤销。
 
       短信权限（RECEIVE_SMS）属敏感权限，用于识别银行交易短信。
-      应用不联网、不上传，全部解析在本机完成。
+
+      交易解析全程在本机完成，账本数据不外传。
     -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      网络权限仅用于两件事：读取公开的版本信息 JSON、下载新版本 APK。
+      应用不会上传账本、转账、账单等任何数据，检查更新请求不带任何设备标识。
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 应用内更新：下载后调起系统安装器所需 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!--
       短信权限隐含要求 telephony 硬件。若不显式声明，Google Play 与应用商店
@@ -66,6 +77,20 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
+
+        <!--
+          FileProvider：把下载到私有目录的 APK 临时授权给系统安装器。
+          Android 7+ 禁止 file:// 路径，必须用 content:// 传递。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

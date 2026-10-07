@@ -1,7 +1,7 @@
 package com.hza.ledger
 
 import android.app.Application
-import com.hza.ledger.autodetect.OneLedgerApplicationHolderContainer
+import com.hza.ledger.autodetect.AppContextHolder
 import com.hza.ledger.data.local.OneLedgerDatabase
 import com.hza.ledger.data.repository.AutoDetectRepository
 import com.hza.ledger.data.repository.LedgerRepository
@@ -14,7 +14,7 @@ class OneLedgerApplication : Application() {
         super.onCreate()
         // 监听器可能早于任何界面启动，这里必须完成容器初始化
         OneLedgerApplicationHolder.container = container
-        OneLedgerApplicationHolderContainer.init(this)
+        AppContextHolder.init(this)
     }
 }
 
@@ -28,10 +28,17 @@ class AppContainer(application: Application) {
 object OneLedgerApplicationHolder {
     /**
      * 通知与短信监听器需要在无 UI 场景下拿到仓库。
-     * 由 [OneLedgerApplication] 在 onCreate 时赋值。
+     * 由 [OneLedgerApplication] 在onCreate 时赋值。
      */
     var container: AppContainer? = null
         internal set
+
+    /**
+     * 识别出候选时回调，用于发送系统通知提醒用户去确认。
+     * 由 Activity 在前台挂载，未挂载时不发送通知。
+     */
+    @Volatile
+    var onPendingCreated: ((amountText: String) -> Unit)? = null
 
     val activeBookId: String
         get() = container?.repository?.activeBookId?.value.orEmpty()

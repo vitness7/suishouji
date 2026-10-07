@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      仅允许共享应用私有缓存目录下的更新包。
+      不开放外部存储，避免通过 FileProvider 泄露用户文件。
+    -->
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

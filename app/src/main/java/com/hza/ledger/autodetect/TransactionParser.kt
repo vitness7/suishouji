@@ -58,17 +58,32 @@ private val RULES: List<Rule> = listOf(
     rule(ParseDirection.INCOME, ParseChannel.BANK_CARD, "income-other", "退款", "退回"),
 
     // 明确的支出（渠道判定）
-    // 分类一律留 null：这些通用词（微信支付/支付宝）无法代表真实用途，
-    // 分类应交给下方更具体的商户关键词规则判断，否则会把所有消费都算成餐饮。
-    rule(ParseDirection.EXPENSE, ParseChannel.WECHAT, null, "微信支付", "微信收款支付", "扫码支付", "商户消费"),
-    rule(ParseDirection.EXPENSE, ParseChannel.ALIPAY, null, "支付宝", "花呗", "余额宝", "蚂蚁森林"),
-    rule(ParseDirection.EXPENSE, ParseChannel.CREDIT_CARD, null, "信用卡", "消费信用卡"),
-    // 银行/通用交易动词：覆盖绝大多数银行短信的常见措辞
+    // 分类一律留null：这些通用词无法代表真实用途。
+    //
+    // ⚠️ 顺序陷阱：「支付成功/付款成功」是通用词，微信和支付宝都会用。
+    // 必须把具体渠道名（微信支付/支付宝）放在通用词之前，
+    // 否则支付宝通知会被微信规则抢先命中，导致渠道误判。
+    rule(
+        ParseDirection.EXPENSE,
+        ParseChannel.WECHAT,
+        null,
+        "微信支付", "微信收款支付", "微信支付凭证", "扫码支付", "商户消费",
+    ),
+    rule(
+        ParseDirection.EXPENSE,
+        ParseChannel.ALIPAY,
+        null,
+        "支付宝", "花呗", "余额宝", "蚂蚁森林", "消费红包",
+    ),
+    rule(ParseDirection.EXPENSE, ParseChannel.CREDIT_CARD, null, "信用卡", "消费信用卡", "账单分期"),
+    // 通用交易动词放在最后：只在没有更具体的渠道线索时才生效
     rule(
         ParseDirection.EXPENSE,
         ParseChannel.BANK_CARD,
         null,
-        "快捷支付", "网银", "银行扣款", "消费支出", "支付成功", "付款成功", "扣款", "消费", "支付", "转账",
+        "支付成功", "付款成功", "已付款", "完成支付", "快捷支付", "网银",
+        "银行扣款", "消费支出", "扣款", "消费", "支付", "转账", "取现", "扣费",
+        "代扣", "预授权", "支付方式",
     ),
 
     // 分类建议：先匹配"用途明确"的规则（如加油站、房租），
@@ -87,11 +102,18 @@ private val RULES: List<Rule> = listOf(
     rule(ParseDirection.UNKNOWN, ParseChannel.UNKNOWN, "expense-daily", "超市", "生鲜", "菜场", "水果", "代扣"),
 )
 
-/** 促销/无关文本特征。命中任一则直接放弃解析，避免把广告当交易。 */
+/**
+ * 明确的营销/无关文本特征。命中任一则直接放弃解析。
+ *
+ * ⚠️ 收录标准：**只在没有支付语义时才会误判的词**才能进这里。
+ * 「券」「活动」「红包」这类词在真实消费通知里极常见
+ * （如"支付成功 ¥12.50 使用优惠券"），若拉黑会导致大量真实支出被误杀。
+ * 因此只保留那些几乎不可能出现在付款通知里的强营销词。
+ */
 private val REJECT_PATTERNS = listOf(
-    "营销", "广告", "优惠", "红包", "立减", "满减", "券", "抽奖", "活动",
-    "验证码", "登录", "注册", "安全提醒", "风险提醒", "点开", "点击查看",
-    "推荐", "热门", "限时", "秒杀", "拼团", "砍价", "签到",
+    "营销", "广告", "点击查看", "点开", "验证码", "登录", "注册",
+    "安全提醒", "风险提醒", "抽奖", "秒杀", "拼团", "砍价", "签到",
+    "推荐", "热门", "限时", "邀请好友",
 )
 
 /**
@@ -119,6 +141,13 @@ private val DATE_NOISE = Regex("""\d{1,2}\s*月\s*\d{1,2}\s*日""")
 private val CARD_TAIL_NOISE = Regex("""(?:尾号|卡号|账号|订单号?|流水号)\s*[:：]?\s*\d+""")
 
 /**
+ * 纯数字兜底：要求文本中已出现货币符号，否则卡号等数字极易被误当金额。
+ *
+ * 例："微信支付 付款 35.80" 这类无符号写法必须同时出现 ¥ / ￥ 才采信。
+ */
+private val SYMBOL_PRESENT = Regex("""[¥￥]""")
+
+/**
  * 解析通知或短信文本。
  *
  * @param text 原始文本（通知标题+内容或短信正文）
@@ -136,24 +165,30 @@ fun parseTransactionText(text: String): ParsedTransaction? {
     // 2. 提取金额
     val amountMinor = extractAmountMinor(normalized)
 
-    // 3. 规则匹配。遍历全部规则逐项补齐未确定信号，不提前 break——
-    //    例如「招商银行 房租代扣 2800元」需同时拿到银行渠道与居住分类。
+    // 3. 规则匹配。
+    //    关键：channel 按「规则越靠前优先级越高」判定，而不是先到先得。
+    //    这样具体渠道名（微信支付）永远不会被后面的通用词（支付成功）覆盖。
     var direction = ParseDirection.UNKNOWN
     var channel = ParseChannel.UNKNOWN
+    var channelPriority = Int.MAX_VALUE
     var categoryKey: String? = null
+    var categoryPriority = Int.MAX_VALUE
     var matched = false
 
-    for (rule in RULES) {
-        if (!rule.keywords.any { lower.contains(it.lowercase()) }) continue
+    RULES.forEachIndexed { priority, rule ->
+        if (!rule.keywords.any { lower.contains(it.lowercase()) }) return@forEachIndexed
         matched = true
-        if (direction == ParseDirection.UNKNOWN && rule.direction != ParseDirection.UNKNOWN) {
+
+        if (rule.direction != ParseDirection.UNKNOWN && direction == ParseDirection.UNKNOWN) {
             direction = rule.direction
         }
-        if (channel == ParseChannel.UNKNOWN && rule.channel != ParseChannel.UNKNOWN) {
+        if (rule.channel != ParseChannel.UNKNOWN && priority < channelPriority) {
             channel = rule.channel
+            channelPriority = priority
         }
-        if (categoryKey == null && rule.categoryKey != null) {
+        if (rule.categoryKey != null && priority < categoryPriority) {
             categoryKey = rule.categoryKey
+            categoryPriority = priority
         }
     }
 
@@ -197,8 +232,11 @@ private fun extractAmountMinor(text: String): Long? {
     // 2. 带"元"字次之
     AMOUNT_WITH_YUAN.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
 
-    // 3. 纯数字：只在上下文已明确是交易（由调用方保证 matched）时使用
-    AMOUNT_BARE.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
+    // 3. 纯数字：仅在文本已出现货币符号时才可信，
+    //    否则「尾号 1234」这类数字会被误当金额。
+    if (SYMBOL_PRESENT.containsMatchIn(cleaned)) {
+        AMOUNT_BARE.find(cleaned)?.let { return toMinor(it.groupValues[1]) }
+    }
 
     return null
 }

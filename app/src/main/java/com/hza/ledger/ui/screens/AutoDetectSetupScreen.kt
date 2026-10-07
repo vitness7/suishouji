@@ -55,6 +55,8 @@ fun AutoDetectSetupScreen(
     notificationEnabled: Boolean,
     smsGranted: Boolean,
     onBack: () -> Unit,
+    onOpenDiagnostics: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -116,6 +118,60 @@ fun AutoDetectSetupScreen(
                 actionLabel = "去授权短信权限",
                 onAction = { openAppSettings(context) },
             )
+
+            // 有问题先看自检：能直接告诉用户"到底哪个通道在工作"
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("识别不出交易？", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "打开自检诊断可以看到监听服务是否连上、最近收到了哪些通知，\n" +
+                            "还能粘贴文本当场测试解析能力，不用靠猜。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    PressableSurface(
+                        onClick = onOpenDiagnostics,
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(42.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "打开自检诊断",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    PressableSurface(
+                        onClick = onOpenSettings,
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(42.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "设置与检查更新",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
 
             OneLedgerCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {

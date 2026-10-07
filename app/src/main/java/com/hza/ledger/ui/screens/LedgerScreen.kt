@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -83,6 +84,7 @@ fun LedgerScreen(
     onBudgetClick: (MonthWindow) -> Unit = {},
     onCalendarClick: () -> Unit = {},
     onPendingClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onTransactionClick: (String) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
@@ -209,6 +211,10 @@ fun LedgerScreen(
                     onClick = onPendingClick,
                 )
             }
+        }
+
+        item {
+            SettingsEntryCard(onClick = onSettingsClick)
         }
 
         if (visibleTransactions.isEmpty()) {
@@ -478,6 +484,56 @@ private fun PendingEntryCard(count: Int, onClick: () -> Unit) {
                     )
                     Text(
                         "识别到自动记账的记录，确认后入账",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** 设置入口：更新检查、自检诊断都在这里。 */
+@Composable
+private fun SettingsEntryCard(onClick: () -> Unit) {
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        PressableSurface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(
+                    Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f),
+                ) {
+                    Text("设置", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "自动记账诊断、检查更新",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

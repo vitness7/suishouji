@@ -15,8 +15,13 @@ android {
         applicationId = "com.hza.ledger"
         minSdk = 23
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
+
+        // 自动更新：版本信息 JSON 的地址。
+        // 留空则应用内「检查更新」会提示"未配置更新地址"，功能自动跳过。
+        // 换成你自己的服务器或网盘直链即可生效。
+        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -35,6 +40,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

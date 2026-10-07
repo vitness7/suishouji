@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -59,6 +60,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +69,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -89,7 +92,10 @@ import com.hza.ledger.ui.screens.BudgetDetailScreen
 import com.hza.ledger.ui.screens.IncomeExpenseCalendarScreen
 import com.hza.ledger.ui.screens.LedgerScreen
 import com.hza.ledger.ui.screens.AutoDetectSetupScreen
+import com.hza.ledger.ui.screens.AutoDetectDiagnosticsScreen
 import com.hza.ledger.ui.screens.PendingScreen
+import com.hza.ledger.ui.screens.SettingsScreen
+import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.autodetect.isNotificationListenerEnabled
 import com.hza.ledger.autodetect.isSmsPermissionGranted
 import com.hza.ledger.ui.screens.SavingsScreen
@@ -97,7 +103,9 @@ import com.hza.ledger.ui.screens.StatisticsScreen
 import com.hza.ledger.ui.theme.BrandBlue
 import com.hza.ledger.ui.theme.BrandBlueDeep
 import com.hza.ledger.ui.theme.BrandBlueLight
+import com.hza.ledger.ui.theme.ExpenseCoral
 import com.hza.ledger.ui.theme.OneLedgerMotion
+import com.hza.ledger.util.MoneyFormatter
 import com.hza.ledger.util.MonthWindow
 import kotlinx.coroutines.launch
 
@@ -117,10 +125,15 @@ internal enum class LedgerPage {
     CALENDAR,
     PENDING,
     AUTO_SETUP,
+    DIAGNOSTICS,
+    SETTINGS,
 }
 
 @Composable
-fun OneLedgerApp(viewModel: OneLedgerViewModel) {
+fun OneLedgerApp(
+    viewModel: OneLedgerViewModel,
+    openPendingOnStart: Boolean = false,
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var destination by rememberSaveable { mutableStateOf(Destination.LEDGER) }
     var ledgerPage by rememberSaveable { mutableStateOf(LedgerPage.OVERVIEW) }
@@ -131,6 +144,29 @@ fun OneLedgerApp(viewModel: OneLedgerViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    // 从通知点击进来时直接落到待确认页
+    LaunchedEffect(openPendingOnStart) {
+        if (openPendingOnStart) {
+            destination = Destination.LEDGER
+            ledgerPage = LedgerPage.PENDING
+        }
+    }
+
+    // 识别出候选时发送系统提醒
+    LaunchedEffect(state.pendingTransactions.size) {
+        if (state.pendingTransactions.isNotEmpty()) {
+            val latest = state.pendingTransactions.firstOrNull()
+            if (latest != null) {
+                PendingNotifier.notifyPending(
+                    context = context,
+                    amountText = MoneyFormatter.format(latest.amountMinor),
+                    pendingCount = state.pendingTransactions.size,
+                )
+            }
+        }
+    }
 
     OneLedgerFrame(
         state = state,
@@ -186,6 +222,14 @@ fun OneLedgerApp(viewModel: OneLedgerViewModel) {
                     duration = SnackbarDuration.Short,
                 )
             }
+        },
+        onOpenSettings = {
+            destination = Destination.LEDGER
+            ledgerPage = LedgerPage.SETTINGS
+        },
+        onOpenDiagnostics = {
+            destination = Destination.LEDGER
+            ledgerPage = LedgerPage.DIAGNOSTICS
         },
         snackbarHostState = snackbarHostState,
     )
@@ -289,6 +333,8 @@ internal fun OneLedgerFrame(
     onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
     onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
     onDiscardAllPending: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenDiagnostics: () -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -336,6 +382,8 @@ internal fun OneLedgerFrame(
                             onConfirmPending = onConfirmPending,
                             onDiscardPending = onDiscardPending,
                             onDiscardAllPending = onDiscardAllPending,
+                            onOpenSettings = onOpenSettings,
+                            onOpenDiagnostics = onOpenDiagnostics,
                             nowMillis = nowMillis,
                         )
                         Destination.ASSETS -> AssetsScreen(state, nowMillis = nowMillis)
@@ -398,6 +446,7 @@ internal fun OneLedgerFrame(
                 OneLedgerBottomBar(
                     selected = destination,
                     onSelected = onDestinationSelected,
+                    pendingBadge = state.pendingTransactions.size,
                     modifier = Modifier
                         .navigationBarsPadding()
                         .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -418,6 +467,8 @@ private fun LedgerDestination(
     onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
     onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
     onDiscardAllPending: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     nowMillis: Long,
 ) {
     var budgetMonthStart by rememberSaveable {
@@ -452,6 +503,7 @@ private fun LedgerDestination(
                 onCalendarClick = { onLedgerPageChanged(LedgerPage.CALENDAR) },
                 onTransactionClick = onTransactionClick,
                 onPendingClick = { onLedgerPageChanged(LedgerPage.PENDING) },
+                onSettingsClick = { onLedgerPageChanged(LedgerPage.SETTINGS) },
             )
             LedgerPage.BUDGET -> BudgetDetailScreen(
                 state = state,
@@ -480,6 +532,17 @@ private fun LedgerDestination(
                 notificationEnabled = isNotificationListenerEnabled(),
                 smsGranted = isSmsPermissionGranted(),
                 onBack = { onLedgerPageChanged(LedgerPage.PENDING) },
+                onOpenDiagnostics = { onLedgerPageChanged(LedgerPage.DIAGNOSTICS) },
+                onOpenSettings = { onLedgerPageChanged(LedgerPage.SETTINGS) },
+            )
+            LedgerPage.DIAGNOSTICS -> AutoDetectDiagnosticsScreen(
+                notificationEnabled = isNotificationListenerEnabled(),
+                smsGranted = isSmsPermissionGranted(),
+                onBack = { onLedgerPageChanged(LedgerPage.AUTO_SETUP) },
+            )
+            LedgerPage.SETTINGS -> SettingsScreen(
+                onBack = { onLedgerPageChanged(LedgerPage.OVERVIEW) },
+                onOpenDiagnostics = { onLedgerPageChanged(LedgerPage.DIAGNOSTICS) },
             )
         }
     }
@@ -569,6 +632,7 @@ private fun LiquidGlassAddButton(
 private fun OneLedgerBottomBar(
     selected: Destination,
     onSelected: (Destination) -> Unit,
+    pendingBadge: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val selectedIndex = Destination.entries.indexOf(selected)
@@ -614,6 +678,8 @@ private fun OneLedgerBottomBar(
                         destination = destination,
                         selected = destination == selected,
                         onClick = { onSelected(destination) },
+                        // 仅账本页显示待确认角标，避免与其他页面混淆
+                        badge = if (destination == Destination.LEDGER) pendingBadge else 0,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -627,6 +693,7 @@ private fun BottomBarItem(
     destination: Destination,
     selected: Boolean,
     onClick: () -> Unit,
+    badge: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -668,6 +735,26 @@ private fun BottomBarItem(
             contentAlignment = Alignment.Center,
         ) {
             Icon(destination.icon, contentDescription = destination.label, tint = content, modifier = Modifier.size(20.dp))
+
+            // 待确认数量角标：识别出候选时主动提示，不必用户主动翻账本
+            if (badge > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .sizeIn(minWidth = 16.dp, minHeight = 16.dp)
+                        .background(ExpenseCoral, CircleShape)
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (badge > 99) "99+" else "$badge",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(2.dp))
         Text(
