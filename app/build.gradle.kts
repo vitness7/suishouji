@@ -15,8 +15,8 @@ android {
         applicationId = "com.hza.ledger"
         minSdk = 23
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.5.0"
+        versionCode = 10
+        versionName = "1.5.1"
 
         // 自动更新：版本信息 JSON 的地址。
         // 留空则应用内「检查更新」会提示"未配置更新地址"，功能自动跳过。

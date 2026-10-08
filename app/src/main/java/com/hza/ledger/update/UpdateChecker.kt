@@ -41,7 +41,7 @@ suspend fun checkUpdate(
     }
 
     try {
-        val connection = (URL(manifestUrl).openConnection() as HttpURLConnection).apply {
+        val connection = ProxySupport.openConnection(manifestUrl, directFirst = true) {
             connectTimeout = 8000
             readTimeout = 8000
             requestMethod = "GET"
@@ -66,7 +66,15 @@ suspend fun checkUpdate(
             connection.disconnect()
         }
     } catch (error: Exception) {
-        UpdateResult.Failure(error.message ?: "网络异常")
+        val message = error.message ?: "网络异常"
+        // DNS 解析失败通常意味着需要代理，给出可操作的提示而不是原始报错
+        UpdateResult.Failure(
+            if (message.contains("resolve host", ignoreCase = true)) {
+                "无法解析服务器地址，请确认手机已连接网络（访问境外地址需开启代理）"
+            } else {
+                message
+            }
+        )
     }
 }
 
@@ -86,7 +94,7 @@ suspend fun downloadApk(
         if (!targetDir.exists()) targetDir.mkdirs()
         val target = File(targetDir, "update.apk")
 
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+        val connection = ProxySupport.openConnection(url, directFirst = true) {
             connectTimeout = 10000
             readTimeout = 20000
             requestMethod = "GET"
