@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Warning
+import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.util.CrashReporter
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -123,6 +124,41 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            // 通知链路诊断：用户反馈"识别成功但不弹通知"时，
+            // 没有这卡片就完全无从下手 —— 因为静默 return 点有4个。
+            val notifyFailure = PendingNotifier.NotificationDiagnostics.lastFailure
+            if (notifyFailure != null) {
+                OneLedgerCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = ExpenseCoral,
+                            )
+                            Text(
+                                "上次识别后未能发送通知",
+                                modifier = Modifier.padding(start = 8.dp),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = ExpenseCoral,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "原因：$notifyFailure",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "把这行字截图发给开发者即可定位。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             // 崩溃提示：闪退类问题必须有运行时信息，否则只能靠猜
             val crash = remember { CrashReporter.lastCrash() }
             if (crash != null) {

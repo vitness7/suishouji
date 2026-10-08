@@ -19,11 +19,35 @@ import com.hza.ledger.R
  *
  * 存在意义：自动识别的价值在于"不用记得记"，如果识别完了还要用户主动去翻，
  * 价值就折损一半。识别成功即主动提醒，点通知直达待确认列表。
+ *
+ * ⚠️ 设计要求：**任何不发通知的情况都必须留下原因**。
+ * 早期版本有 4 个静默 return 点，通知不弹时完全无从排查，
+ * 用户只能看到「没反应」。现在统一走 [recordFailure]。
  */
 object PendingNotifier {
 
     private const val CHANNEL_ID = "pending_transactions"
     private const val NOTIFICATION_ID_BASE = 8000
+
+    /**
+     * 记录一次「通知未发送」的原因。
+     *
+     * 不直接依赖 AutoDetectDiagnostics（避免包循环），
+     * 改为写入崩溃记录，用户可在设置页看到。
+     */
+    private fun recordFailure(reason: String) {
+        android.util.Log.w("PendingNotifier", "通知未发送：$reason")
+        NotificationDiagnostics.lastFailure = reason
+    }
+
+    /** 记录最近一次通知发送失败的原因；成功时清空。 */
+    object NotificationDiagnostics {
+        @Volatile
+        var lastFailure: String? = null
+
+        @Volatile
+        var lastSuccessAt: Long = 0L
+    }
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -59,10 +83,14 @@ object PendingNotifier {
                 Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            recordFailure("缺少通知权限（Android 13+ 需要用户授权）")
             return
         }
 
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            recordFailure("系统通知开关已关闭（应用设置里通知被禁用）")
+            return
+        }
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -94,6 +122,11 @@ object PendingNotifier {
         runCatching {
             NotificationManagerCompat.from(context)
                 .notify(NOTIFICATION_ID_BASE, notification)
+            NotificationDiagnostics.lastSuccessAt = System.currentTimeMillis()
+            NotificationDiagnostics.lastFailure = null
+            android.util.Log.i("PendingNotifier", "通知已发送：$amountText")
+        }.onFailure { error ->
+            recordFailure("发送异常：${error.message}")
         }
     }
 

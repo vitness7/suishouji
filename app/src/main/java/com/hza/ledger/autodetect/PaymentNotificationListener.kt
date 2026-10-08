@@ -101,8 +101,17 @@ class PaymentNotificationListener : NotificationListenerService() {
 
         if (parsed == null || parsed.confidence < MIN_CONFIDENCE) return
 
+        val amountText = MoneyFormatter.format(parsed.amountMinor)
+
         val bookId = OneLedgerApplicationHolder.activeBookId
-        if (bookId.isBlank()) return
+        if (bookId.isBlank()) {
+            AutoDetectDiagnostics.recordRecognized(
+                appLabel, text, amountText,
+                inserted = false, notified = false,
+                failureReason = "账本未初始化",
+            )
+            return
+        }
 
         scope.launch {
             runCatching {
@@ -112,21 +121,42 @@ class PaymentNotificationListener : NotificationListenerService() {
                     sourceKey = "notif:${sbn.key}:${sbn.postTime}",
                     packageName = packageName,
                 )
+
+                var notified = false
                 if (inserted) {
-                    OneLedgerApplicationHolder.onPendingCreated?.invoke(
-                        MoneyFormatter.format(parsed.amountMinor),
-                    )
+                    // 优先走回调（回调里可能附带其他 UI 联动）。
+                    // ⚠️ 但不能只依赖回调：回调在 Application.onCreate 里绑定，
+                    // 若监听器比 Application 初始化更早收到通知，回调为空，
+                    // 通知就永远发不出去。所以回调缺失时**降级为直接发通知**。
+                    val callbackInvoked = runCatching {
+                        OneLedgerApplicationHolder.onPendingCreated?.invoke(amountText)
+                            ?: return@runCatching false
+                        true
+                    }.getOrDefault(false)
+
+                    notified = callbackInvoked
+
+                    if (!notified) {
+                        android.util.Log.i(
+                            "PendingNotifier",
+                            "回调未注册，降级为直接发送通知",
+                        )
+                        PendingNotifier.notifyPending(AppContextHolder.context, amountText, 1)
+                        notified = PendingNotifier.NotificationDiagnostics.lastFailure == null
+                    }
                 }
+
+                // 把完整链路结果写入诊断，让「识别成功但没弹通知」这类问题可排查
+                AutoDetectDiagnostics.recordRecognized(
+                    appLabel, text, amountText,
+                    inserted = inserted,
+                    notified = notified,
+                    failureReason = PendingNotifier.NotificationDiagnostics.lastFailure,
+                )
             }
         }
     }
 
-    /**
-     * 拼接通知的标题与正文。
-     *
-     * Android 13+ 会对敏感通知脱敏，此时文本里不含金额，
-     * 解析器会自然返回 null，不会误判。
-     */
     private fun extractText(notification: Notification): String? {
         val extras = notification.extras ?: return null
         val parts = buildList {
@@ -224,6 +254,37 @@ object AutoDetectDiagnostics {
             entries.addFirst(entry)
             while (entries.size > MAX_ENTRIES) entries.removeLast()
         }
+    }
+
+    /**
+     * 记录一次「识别成功」的完整结果，含通知是否送达。
+     *
+     * 之前只记录识别结果，用户看到"识别为支出 ¥xx"却没弹通知，
+     * 完全无法判断卡在哪一步。现在把通知链路的状态一并写入，
+     * 自检页能一眼看出是识别没成功，还是通知没发出去。
+     */
+    fun recordRecognized(
+        appLabel: String,
+        rawText: String,
+        amountText: String,
+        inserted: Boolean,
+        notified: Boolean,
+        failureReason: String?,
+    ) {
+        val outcome = when {
+            !inserted -> "已识别但未入库（可能重复投递）"
+            notified -> "已入库 + 通知已发送"
+            failureReason != null -> "已入库，通知未发送：$failureReason"
+            else -> "已入库，通知状态未知"
+        }
+        record(
+            RecentNotification(
+                appLabel = appLabel,
+                rawText = rawText.take(120),
+                result = "$amountText  $outcome",
+                parsed = inserted,
+            ),
+        )
     }
 
     fun recordStatus(status: ListenerStatus) {

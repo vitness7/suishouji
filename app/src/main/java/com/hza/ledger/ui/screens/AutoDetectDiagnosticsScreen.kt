@@ -36,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import com.hza.ledger.autodetect.AutoDetectDiagnostics
 import com.hza.ledger.autodetect.RecentNotification
@@ -43,6 +45,10 @@ import com.hza.ledger.autodetect.parseTransactionText
 import com.hza.ledger.ui.components.OneLedgerCard
 import com.hza.ledger.ui.components.PressableSurface
 import com.hza.ledger.ui.components.ScreenHeader
+import com.hza.ledger.autodetect.AppContextHolder
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import com.hza.ledger.ui.components.SectionTitle
 import com.hza.ledger.ui.theme.ExpenseCoral
 import com.hza.ledger.ui.theme.IncomeMint
@@ -136,6 +142,20 @@ fun AutoDetectDiagnosticsScreen(
 
 @Composable
 private fun ChannelStatusCard(notificationEnabled: Boolean, smsGranted: Boolean) {
+    // ⚠️ 「通知使用权」已授权 ≠「能发通知」。前者管读别人的通知，
+    // 后者管本应用能否弹通知 —— Android 13+ 用户可以单独关掉后者。
+    // 这里显式列出，否则用户会以为授权了就一定会有提醒。
+    val canPostNotification = NotificationManagerCompat.from(AppContextHolder.context)
+        .areNotificationsEnabled()
+    val hasPostPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(
+            AppContextHolder.context,
+            Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+    } else {
+        true
+    }
+
     OneLedgerCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text("通道状态", style = MaterialTheme.typography.titleMedium)
@@ -144,6 +164,16 @@ private fun ChannelStatusCard(notificationEnabled: Boolean, smsGranted: Boolean)
                 name = "通知监听",
                 enabled = notificationEnabled,
                 hint = if (notificationEnabled) "已授权" else "未开启，通知不会被读取",
+            )
+            Spacer(Modifier.height(10.dp))
+            StatusRow(
+                name = "发出提醒",
+                enabled = canPostNotification && hasPostPermission,
+                hint = when {
+                    !hasPostPermission -> "缺少通知权限，无法弹提醒（Android 13+ 需单独授权）"
+                    !canPostNotification -> "系统通知开关已关闭，请到系统设置里允许本应用发通知"
+                    else -> "可以正常弹提醒"
+                },
             )
             Spacer(Modifier.height(10.dp))
             StatusRow(
