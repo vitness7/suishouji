@@ -8,6 +8,7 @@ import com.hza.ledger.util.AppContextRef
 import com.hza.ledger.util.CrashReporter
 import com.hza.ledger.data.local.OneLedgerDatabase
 import com.hza.ledger.data.repository.AutoDetectRepository
+import com.hza.ledger.export.ExportRepository
 import com.hza.ledger.data.repository.LedgerRepository
 import com.hza.ledger.data.repository.OfflineLedgerRepository
 
@@ -39,6 +40,10 @@ class AppContainer(application: Application) {
     val repository: LedgerRepository = OfflineLedgerRepository(database.ledgerDao())
     val autoDetectRepository: AutoDetectRepository =
         AutoDetectRepository(database.ledgerDao(), repository.activeBookId)
+
+    /** 账本导出（CSV）。用于把数据取出来，避免卸载/换机导致丢失。 */
+    val exportRepository: ExportRepository =
+        ExportRepository(database.ledgerDao())
 }
 
 object OneLedgerApplicationHolder {
@@ -69,4 +74,10 @@ object OneLedgerApplicationHolder {
         get() = requireNotNull(container) {
             "AppContainer 尚未初始化，监听器不应早于 Application.onCreate 启动"
         }.autoDetectRepository
+
+    /** 账本导出（CSV）。 */
+    val exportRepository: ExportRepository
+        get() = requireNotNull(container) {
+            "AppContainer 尚未初始化"
+        }.exportRepository
 }

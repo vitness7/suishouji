@@ -1,5 +1,7 @@
 package com.hza.ledger.ui.screens
 
+
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Warning
+import com.hza.ledger.OneLedgerApplicationHolder
+import com.hza.ledger.export.ExportResult
 import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.util.CrashReporter
 import androidx.compose.material3.Icon
@@ -231,6 +235,82 @@ fun SettingsScreen(
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            }
+
+            // ---- 数据管理 ----
+            SectionTitle("数据管理")
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("导出账目明细", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "把账本导出为 CSV 文件，可用 Excel 打开。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "⚠️ 账本数据只存在这台手机上，卸载或换手机会永久丢失。" +
+                            "建议定期导出备份。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExpenseCoral,
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    var exporting by remember { mutableStateOf(false) }
+                    var exportMessage by remember { mutableStateOf("") }
+
+                    SecondaryButton(
+                        text = if (exporting) "正在导出…" else "导出 CSV",
+                        onClick = {
+                            if (exporting) return@SecondaryButton
+                            exporting = true
+                            exportMessage = ""
+                            val ctx = context
+                            scope.launch {
+                                val bookId = OneLedgerApplicationHolder.activeBookId
+                                // exportTransactions 自身已返回 Result，
+                                // 这里只需前置校验账本是否可用
+                                val result = if (bookId.isBlank()) {
+                                    Result.failure(IllegalStateException("账本尚未初始化，请重启应用后再试"))
+                                } else {
+                                    OneLedgerApplicationHolder.exportRepository
+                                        .exportTransactions(ctx, bookId)
+                                }
+                                exporting = false
+                                result.onSuccess { exported ->
+                                    exportMessage = "已导出 ${exported.recordCount} 笔记录"
+                                    runCatching {
+                                        ctx.startActivity(
+                                            Intent.createChooser(
+                                                OneLedgerApplicationHolder.exportRepository
+                                                    .buildShareIntent(ctx, exported.file),
+                                                "分享账本导出",
+                                            ),
+                                        )
+                                    }.onFailure {
+                                        exportMessage = "已导出 ${exported.recordCount} 笔，但无法打开分享面板"
+                                    }
+                                }.onFailure { error ->
+                                    exportMessage = error.message ?: "导出失败"
+                                }
+                            }
+                        },
+                    )
+
+                    if (exportMessage.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            exportMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (exportMessage.startsWith("已导出")) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                ExpenseCoral
+                            },
+                        )
+                    }
                 }
             }
 

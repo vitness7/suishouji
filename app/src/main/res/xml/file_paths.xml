@@ -7,4 +7,13 @@
     <cache-path
         name="updates"
         path="updates/" />
+
+    <!--
+      账本导出文件（CSV）。
+      同样限制在私有缓存目录内，且只开放 exports 子目录 ——
+      更新包与导出文件各有独立授权路径，权限不混用。
+    -->
+    <cache-path
+        name="exports"
+        path="exports/" />
 </paths>

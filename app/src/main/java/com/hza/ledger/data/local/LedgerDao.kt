@@ -38,6 +38,23 @@ interface LedgerDao {
     @Query("SELECT * FROM accounts WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY sortOrder, name")
     suspend fun getAccounts(bookId: String): List<AccountEntity>
 
+    /**
+     * 取全部交易，供数据导出使用。
+     *
+     * 只取未删除的（`deletedAt IS NULL`）—— 已删除的记录属于软删除的中间状态，
+     * 导出时应当排除，否则用户会看到已删掉的账目。
+     *
+     * 按发生时间倒序，与 App 内列表的顺序一致，便于用户核对。
+     */
+    @Query(
+        """
+        SELECT * FROM transactions
+        WHERE bookId = :bookId AND deletedAt IS NULL
+        ORDER BY occurredAt DESC, createdAt DESC
+        """,
+    )
+    suspend fun getAllTransactions(bookId: String): List<TransactionEntity>
+
     @Query(
         """
         SELECT
