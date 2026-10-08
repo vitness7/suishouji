@@ -49,6 +49,12 @@ class PaymentNotificationListener : NotificationListenerService() {
         // 排除本应用自己的通知，避免自循环
         if (packageName == applicationContext.packageName) return
 
+        // ⚠️ 无论后续解析成功与否，都记录「收到了哪个 App 的通知」。
+        // 用户反馈「不弹」时，第一件事要确认的是：
+        // 监听器到底有没有收到支付 App 的通知 —— 若根本没收到，
+        // 后面所有解析与通知逻辑都是空谈。
+        PendingNotifier.NotificationDiagnostics.receivedCount++
+
         val appLabel = packageLabel(packageName)
         val isBusinessApp = EcommerceClassifier.isBusinessPackage(packageName)
         val text = extractText(notification)

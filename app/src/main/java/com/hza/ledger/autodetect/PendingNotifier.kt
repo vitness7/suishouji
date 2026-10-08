@@ -40,13 +40,20 @@ object PendingNotifier {
         NotificationDiagnostics.lastFailure = reason
     }
 
-    /** 记录最近一次通知发送失败的原因；成功时清空。 */
+    /** 记录通知发送的最近状态，供自检页与设置页排查。 */
     object NotificationDiagnostics {
         @Volatile
         var lastFailure: String? = null
 
         @Volatile
         var lastSuccessAt: Long = 0L
+
+        @Volatile
+        var lastSuccessAmount: String = ""
+
+        /** 监听器累计收到的通知数。用于判断「监听器到底有没有在跑」。 */
+        @Volatile
+        var receivedCount: Int = 0
     }
 
     fun ensureChannel(context: Context) {
@@ -123,7 +130,10 @@ object PendingNotifier {
             NotificationManagerCompat.from(context)
                 .notify(NOTIFICATION_ID_BASE, notification)
             NotificationDiagnostics.lastSuccessAt = System.currentTimeMillis()
-            NotificationDiagnostics.lastFailure = null
+            NotificationDiagnostics.lastSuccessAmount = amountText
+            // ⚠️ 不在这里清空 lastFailure。
+            // 用户反馈「不弹通知」时，若这里清空了，设置页就什么都不显示 ——
+            // 正好把唯一的线索抹掉。改为只更新成功时间，失败原因保留最近一次。
             android.util.Log.i("PendingNotifier", "通知已发送：$amountText")
         }.onFailure { error ->
             recordFailure("发送异常：${error.message}")

@@ -125,33 +125,40 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // 通知链路诊断：用户反馈"识别成功但不弹通知"时，
-            // 没有这卡片就完全无从下手 —— 因为静默 return 点有4个。
-            val notifyFailure = PendingNotifier.NotificationDiagnostics.lastFailure
-            if (notifyFailure != null) {
+            // 没有这些数字就完全无从下手 —— 因为静默 return 点有 4 个。
+            val notifyDiag = PendingNotifier.NotificationDiagnostics
+            if (notifyDiag.receivedCount > 0 || notifyDiag.lastSuccessAt > 0L) {
                 OneLedgerCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = ExpenseCoral,
-                            )
+                        Text(
+                            "通知链路状态",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "监听器累计收到 ${notifyDiag.receivedCount} 条通知",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (notifyDiag.lastSuccessAt > 0L) {
+                                "最近成功发送提醒：${notifyDiag.lastSuccessAmount}"
+                            } else {
+                                "最近成功发送提醒：暂无记录"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        if (notifyDiag.lastFailure != null) {
+                            Spacer(Modifier.height(4.dp))
                             Text(
-                                "上次识别后未能发送通知",
-                                modifier = Modifier.padding(start = 8.dp),
-                                style = MaterialTheme.typography.titleMedium,
+                                "最近失败：${notifyDiag.lastFailure}",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = ExpenseCoral,
                             )
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "原因：$notifyFailure",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "把这行字截图发给开发者即可定位。",
+                            "截图这段文字发给开发者即可定位。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

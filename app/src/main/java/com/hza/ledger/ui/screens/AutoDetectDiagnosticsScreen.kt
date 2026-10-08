@@ -40,6 +40,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import com.hza.ledger.autodetect.AutoDetectDiagnostics
+import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.autodetect.RecentNotification
 import com.hza.ledger.autodetect.parseTransactionText
 import com.hza.ledger.ui.components.OneLedgerCard
@@ -104,6 +105,9 @@ fun AutoDetectDiagnosticsScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item { ChannelStatusCard(notificationEnabled, smsGranted) }
+
+            // 通知链路状态：区分「没收到通知」与「收到了但没发出提醒」
+            item { NotifyPipelineCard(refreshKey) }
 
             item {
                 ParserTestCard(
@@ -185,6 +189,65 @@ private fun ChannelStatusCard(notificationEnabled: Boolean, smsGranted: Boolean)
             Text(
                 "提示：开关显示「已开启」只代表系统授权成功，" +
                     "能否真正识别还要看下方「最近收到的通知」里有没有记录。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * 通知链路状态卡。
+ *
+ * 之前排查「识别成功但不弹通知」时无从下手，因为：
+ * - 失败原因会被成功后清空，看不到历史失败
+ * - 没有「监听器收到过多少条通知」的计数，
+ *   无法区分「没收到通知」与「收到了但没发出提醒」
+ *
+ * 这三个数字能一眼定位问题所在环节。
+ */
+@Composable
+private fun NotifyPipelineCard(refreshKey: Int) {
+    val diag = remember(refreshKey) { PendingNotifier.NotificationDiagnostics }
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Text("通知链路", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                "监听器累计收到：${diag.receivedCount} 条通知",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                if (diag.lastSuccessAt > 0L) {
+                    "最近成功发送提醒：${
+                        java.text.SimpleDateFormat(
+                            "HH:mm:ss",
+                            java.util.Locale.CHINA,
+                        ).format(java.util.Date(diag.lastSuccessAt))
+                    }（${diag.lastSuccessAmount}）"
+                } else {
+                    "最近成功发送提醒：暂无记录"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            if (diag.lastFailure != null) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "最近一次发送失败：${diag.lastFailure}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "判断方法：累计收到 0 条 → 监听器没工作或权限失效；" +
+                    "收到很多但「暂无记录」→ 识别未入库或通知被拦；" +
+                    "有失败原因 → 按原因处理。截图这段文字即可定位。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
