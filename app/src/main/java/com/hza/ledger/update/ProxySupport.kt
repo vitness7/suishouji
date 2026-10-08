@@ -51,25 +51,34 @@ object ProxySupport {
         configure: HttpURLConnection.() -> Unit = {},
     ): HttpURLConnection {
         val target = URL(url)
+
+        // ⚠️ 顺序要求：必须先 apply(configure) 再 connect()。
+        // HttpURLConnection 一旦 connect() 建立连接，就不允许再改请求属性，
+        // 此时调setRequestProperty / requestMethod 会抛
+        // IllegalStateException("Cannot set request property after connection is made")。
         val connection: HttpURLConnection = if (directFirst) {
-            val direct = target.openConnection() as HttpURLConnection
+            val direct = (target.openConnection() as HttpURLConnection).apply(configure)
             try {
                 direct.connect()
                 direct
             } catch (directError: Exception) {
+                direct.disconnect()
                 // 直连失败（多半是 DNS 解析不了），换代理重试
                 val proxy = resolveProxy() ?: throw directError
-                (target.openConnection(proxy) as HttpURLConnection).also { it.connect() }
+                (target.openConnection(proxy) as HttpURLConnection)
+                    .apply(configure)
+                    .also { it.connect() }
             }
         } else {
             val proxy = resolveProxy()
-            if (proxy != null) {
+            val conn = if (proxy != null) {
                 target.openConnection(proxy) as HttpURLConnection
             } else {
                 target.openConnection() as HttpURLConnection
             }
+            conn.apply(configure)
         }
-        return connection.apply(configure)
+        return connection
     }
 
     /**
