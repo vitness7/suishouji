@@ -3,6 +3,7 @@ package com.hza.ledger
 import android.app.Application
 import com.hza.ledger.autodetect.AppContextHolder
 import com.hza.ledger.autodetect.ListenerConnectionProbe
+import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.util.AppContextRef
 import com.hza.ledger.util.CrashReporter
 import com.hza.ledger.data.local.OneLedgerDatabase
@@ -23,6 +24,13 @@ class OneLedgerApplication : Application() {
         CrashReporter.install()
         // 冷启动时恢复监听器的授权状态，否则用户会看到"未授权"而误以为设置失败
         ListenerConnectionProbe.restore()
+
+        // 识别成功后发送提醒通知。
+        // ⚠️ 必须在 Application 里绑定 —— 若依赖 Activity 赋值，
+        // 监听器在后台收到通知时回调为空，通知永远不会弹。
+        OneLedgerApplicationHolder.onPendingCreated = { amountText ->
+            PendingNotifier.notifyPending(this, amountText, 1)
+        }
     }
 }
 
@@ -43,7 +51,13 @@ object OneLedgerApplicationHolder {
 
     /**
      * 识别出候选时回调，用于发送系统通知提醒用户去确认。
-     * 由 Activity 在前台挂载，未挂载时不发送通知。
+     *
+     * ⚠️ 这个回调**必须在 Application.onCreate 里直接绑定**。
+     * 之前注释写的是「由 Activity 在前台挂载」，但实测发现 Activity 从未赋值，
+     * 导致 `?.invoke()` 永远是 no-op，**通知从来不弹** ——
+     * 而交易其实已进待确认列表，用户却完全不知道。
+     *
+     * 通知本身不需要 Activity 上下文，PendingNotifier 只需 applicationContext。
      */
     @Volatile
     var onPendingCreated: ((amountText: String) -> Unit)? = null

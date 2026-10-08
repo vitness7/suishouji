@@ -78,7 +78,9 @@ object PendingNotifier {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("识别到新的支出")
+            // ⚠️ 不能写死「支出」——自动识别里也有收入（工资、退款）。
+            // 之前写死会让工资到账时弹出「识别到新的支出」，明显不对。
+            .setContentTitle("识别到新的交易")
             .setContentText("$amountText　点此确认是否入账")
             .setStyle(
                 NotificationCompat.BigTextStyle()

@@ -34,8 +34,15 @@ class AutoDetectRepository(
      *
      * @return 是否成功产生候选
      */
-    suspend fun ingest(bookId: String, text: String, sourceKey: String): Boolean {
-        val parsed = parseTransactionText(text) ?: return false
+    suspend fun ingest(
+        bookId: String,
+        text: String,
+        sourceKey: String,
+        packageName: String? = null,
+    ): Boolean {
+        // ⚠️ 必须传 packageName，否则电商场景的经营识别拿不到来源信息，
+        // 会退化成只看文案判断，商家 App 的支出可能被归到生活类。
+        val parsed = parseTransactionText(text, packageName) ?: return false
         if (parsed.confidence < MIN_CONFIDENCE) return false
 
         // 同一条来源只留一条，防止通知重复投递堆积

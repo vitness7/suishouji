@@ -110,6 +110,7 @@ class PaymentNotificationListener : NotificationListenerService() {
                     bookId = bookId,
                     text = text,
                     sourceKey = "notif:${sbn.key}:${sbn.postTime}",
+                    packageName = packageName,
                 )
                 if (inserted) {
                     OneLedgerApplicationHolder.onPendingCreated?.invoke(
