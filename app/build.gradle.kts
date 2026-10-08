@@ -15,13 +15,22 @@ android {
         applicationId = "com.hza.ledger"
         minSdk = 23
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.6.0"
+        versionCode = 15
+        versionName = "1.6.1"
 
         // 自动更新：版本信息 JSON 的地址。
         // 留空则应用内「检查更新」会提示"未配置更新地址"，功能自动跳过。
         // 换成你自己的服务器或网盘直链即可生效。
-        buildConfigField("String", "UPDATE_MANIFEST_URL", "\"\"")
+        // 内置更新地址。填了之后 App 装上就能点「检查更新」，
+        // 用户无需在设置页手动粘贴。
+        //
+        // 这个地址是**固定的**（配置发布在 latest 版本下），
+        // 只有内容会随发版更新，地址永不变动。
+        buildConfigField(
+            "String",
+            "UPDATE_MANIFEST_URL",
+            "\"https://github.com/vitness7/suishouji-releases/releases/download/latest/update.txt\"",
+        )
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
