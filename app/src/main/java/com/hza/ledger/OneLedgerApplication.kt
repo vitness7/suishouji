@@ -1,6 +1,7 @@
 package com.hza.ledger
 
 import android.app.Application
+import com.hza.ledger.autodetect.NotificationDiagnostics
 import com.hza.ledger.autodetect.AppContextHolder
 import com.hza.ledger.autodetect.ListenerConnectionProbe
 import com.hza.ledger.autodetect.PendingNotifier
@@ -25,6 +26,12 @@ class OneLedgerApplication : Application() {
         CrashReporter.install()
         // 冷启动时恢复监听器的授权状态，否则用户会看到"未授权"而误以为设置失败
         ListenerConnectionProbe.restore()
+
+        // 恢复通知链路的可观测状态。
+        // ⚠️ 这些值以前只在内存里，App 一重启就清零 ——
+        // 导致排查「前几天能用、今天忽然不行」这类问题时，
+        // 既看不到上次成功时间，也看不出服务停了多久。
+        NotificationDiagnostics.restore()
 
         // 识别成功后发送提醒通知。
         // ⚠️ 必须在 Application 里绑定 —— 若依赖 Activity 赋值，

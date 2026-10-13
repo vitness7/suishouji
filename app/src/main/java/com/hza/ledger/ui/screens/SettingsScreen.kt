@@ -26,8 +26,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.SystemUpdateAlt
 import androidx.compose.material.icons.filled.Warning
+import com.hza.ledger.autodetect.NotificationDiagnostics
 import com.hza.ledger.OneLedgerApplicationHolder
 import com.hza.ledger.export.ExportResult
+import com.hza.ledger.autodetect.hint
+import com.hza.ledger.autodetect.listenerHealth
 import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.util.CrashReporter
 import androidx.compose.material3.Icon
@@ -128,41 +131,72 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // 通知链路诊断：用户反馈"识别成功但不弹通知"时，
-            // 没有这些数字就完全无从下手 —— 因为静默 return 点有 4 个。
-            val notifyDiag = PendingNotifier.NotificationDiagnostics
-            if (notifyDiag.receivedCount > 0 || notifyDiag.lastSuccessAt > 0L) {
-                OneLedgerCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
+            // 通知链路状态：**无条件显示**。
+            // ⚠️ 早期版本只在"有数据时"才显示这张卡 —— 恰恰在最需要它的场景
+            // （服务被杀、从未收到过通知）下什么都不显示，用户毫无线索。
+            // 排查问题的入口不能有前置条件。
+            val notifyDiag = NotificationDiagnostics
+            val health = listenerHealth()
+            val silentText = notifyDiag.silentForText()
+
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            "通知链路状态",
+                            "自动识别状态",
                             style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "监听器累计收到 ${notifyDiag.receivedCount} 条通知",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            if (notifyDiag.lastSuccessAt > 0L) {
-                                "最近成功发送提醒：${notifyDiag.lastSuccessAmount}"
-                            } else {
-                                "最近成功发送提醒：暂无记录"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        if (notifyDiag.lastFailure != null) {
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                "最近失败：${notifyDiag.lastFailure}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = ExpenseCoral,
+                        if (health.needsAttention) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = ExpenseCoral,
                             )
                         }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    // 结论先行：一句话说明到底有没有问题
+                    Text(
+                        health.hint(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (health.needsAttention) {
+                            ExpenseCoral
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "累计收到 ${notifyDiag.receivedCount} 条通知　·　上次收到：$silentText",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (notifyDiag.lastFailure != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "上次失败：${notifyDiag.lastFailure}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ExpenseCoral,
+                        )
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    var testMsg by remember { mutableStateOf<String?>(null) }
+                    SecondaryButton(
+                        text = "发送测试通知",
+                        onClick = {
+                            testMsg = PendingNotifier.sendTestNotification(context)
+                                ?: "已发送。若几秒内没有看到通知，说明系统通知被关闭了。"
+                        },
+                    )
+                    testMsg?.let {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "截图这段文字发给开发者即可定位。",
+                            it,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

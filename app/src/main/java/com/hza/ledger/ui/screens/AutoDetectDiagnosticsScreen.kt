@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,6 +42,10 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import com.hza.ledger.autodetect.AutoDetectDiagnostics
+import com.hza.ledger.autodetect.ListenerHealth
+import com.hza.ledger.autodetect.NotificationDiagnostics
+import com.hza.ledger.autodetect.hint
+import com.hza.ledger.autodetect.listenerHealth
 import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.autodetect.RecentNotification
 import com.hza.ledger.autodetect.parseTransactionText
@@ -199,55 +205,112 @@ private fun ChannelStatusCard(notificationEnabled: Boolean, smsGranted: Boolean)
 /**
  * 通知链路状态卡。
  *
- * 之前排查「识别成功但不弹通知」时无从下手，因为：
- * - 失败原因会被成功后清空，看不到历史失败
- * - 没有「监听器收到过多少条通知」的计数，
- *   无法区分「没收到通知」与「收到了但没发出提醒」
+ * ## 为什么要有这张卡
  *
- * 这三个数字能一眼定位问题所在环节。
+ * 用户反馈「前几天还能用，今天忽然不弹了」这类问题时，
+ * 光看「权限已开启」是没用的 —— 国产 ROM 会在权限仍显示开启的情况下
+ * 静默杀掉监听服务。必须看**时间**才能发现真相：
+ * 「上次收到通知：3 天前」比任何布尔标志都可靠。
+ *
+ * 卡片给出三样东西：
+ * 1. 健康结论（一句话说明到底哪里有问题）
+ * 2. 原始数据（收到多少条、上次什么时候）
+ * 3. 测试按钮（让用户能主动验证通知功能本身是否正常）
  */
 @Composable
 private fun NotifyPipelineCard(refreshKey: Int) {
-    val diag = remember(refreshKey) { PendingNotifier.NotificationDiagnostics }
+    val diag = remember(refreshKey) { NotificationDiagnostics }
+    val health = remember(refreshKey) { listenerHealth() }
+    val context = LocalContext.current
+    var testResult by remember { mutableStateOf<String?>(null) }
+
+    val stamp = remember(diag.lastSuccessAt) {
+        if (diag.lastSuccessAt > 0L) {
+            java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.CHINA)
+                .format(java.util.Date(diag.lastSuccessAt))
+        } else {
+            null
+        }
+    }
+
     OneLedgerCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Text("通知链路", style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("通知链路", style = MaterialTheme.typography.titleMedium)
+            }
             Spacer(Modifier.height(10.dp))
 
+            // ---- 健康结论：最重要的一行 ----
+            val attentionColor = if (health.needsAttention) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
             Text(
-                "监听器累计收到：${diag.receivedCount} 条通知",
+                health.hint(),
                 style = MaterialTheme.typography.bodyMedium,
+                color = attentionColor,
             )
-            Spacer(Modifier.height(6.dp))
 
+            Spacer(Modifier.height(12.dp))
+
+            // ---- 原始数据 ----
             Text(
-                if (diag.lastSuccessAt > 0L) {
-                    "最近成功发送提醒：${
-                        java.text.SimpleDateFormat(
-                            "HH:mm:ss",
-                            java.util.Locale.CHINA,
-                        ).format(java.util.Date(diag.lastSuccessAt))
-                    }（${diag.lastSuccessAmount}）"
+                "累计收到：${diag.receivedCount} 条通知",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "上次收到通知：${diag.silentForText()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (health == ListenerHealth.STALLED) {
+                    MaterialTheme.colorScheme.error
                 } else {
-                    "最近成功发送提醒：暂无记录"
+                    MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "上次成功提醒：${stamp ?: "暂无记录"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             if (diag.lastFailure != null) {
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "最近一次发送失败：${diag.lastFailure}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "上次失败原因：${diag.lastFailure}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ---- 主动测试 ----
+            DiagnosticActionButton(
+                text = "发送测试通知",
+                onClick = {
+                    testResult = PendingNotifier.sendTestNotification(context)
+                        ?: "已发送。若几秒内没看到通知，请检查系统通知设置。"
+                },
+            )
+
+            testResult?.let { result ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    result,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             Spacer(Modifier.height(10.dp))
             Text(
-                "判断方法：累计收到 0 条 → 监听器没工作或权限失效；" +
-                    "收到很多但「暂无记录」→ 识别未入库或通知被拦；" +
-                    "有失败原因 → 按原因处理。截图这段文字即可定位。",
+                "排查提示：「上次收到通知」比权限开关可靠。" +
+                    "若显示已隔多日、而你这几天都在用手机，说明监听服务被系统停了，" +
+                    "把通知使用权关掉再打开即可恢复。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -406,5 +469,16 @@ private fun DiagnosticRow(entry: RecentNotification) {
                 )
             }
         }
+    }
+}
+
+/** 诊断页的操作按钮，风格与整体保持一致。 */
+@Composable
+private fun DiagnosticActionButton(text: String, onClick: () -> Unit) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(text)
     }
 }

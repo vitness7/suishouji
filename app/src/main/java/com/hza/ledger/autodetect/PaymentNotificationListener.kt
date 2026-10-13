@@ -53,7 +53,12 @@ class PaymentNotificationListener : NotificationListenerService() {
         // 用户反馈「不弹」时，第一件事要确认的是：
         // 监听器到底有没有收到支付 App 的通知 —— 若根本没收到，
         // 后面所有解析与通知逻辑都是空谈。
-        PendingNotifier.NotificationDiagnostics.receivedCount++
+        //
+        // lastReceivedAt 会被持久化，因此即使用户几天后重启应用，
+        // 也能看出「上一次收到通知是多久以前」——
+        // 这是判断监听服务是否被系统杀掉的唯一可靠依据。
+        NotificationDiagnostics.receivedCount += 1
+        NotificationDiagnostics.lastReceivedAt = System.currentTimeMillis()
 
         val appLabel = packageLabel(packageName)
         val isBusinessApp = EcommerceClassifier.isBusinessPackage(packageName)
@@ -148,7 +153,7 @@ class PaymentNotificationListener : NotificationListenerService() {
                             "回调未注册，降级为直接发送通知",
                         )
                         PendingNotifier.notifyPending(AppContextHolder.context, amountText, 1)
-                        notified = PendingNotifier.NotificationDiagnostics.lastFailure == null
+                        notified = NotificationDiagnostics.lastFailure == null
                     }
                 }
 
@@ -157,7 +162,7 @@ class PaymentNotificationListener : NotificationListenerService() {
                     appLabel, text, amountText,
                     inserted = inserted,
                     notified = notified,
-                    failureReason = PendingNotifier.NotificationDiagnostics.lastFailure,
+                    failureReason = NotificationDiagnostics.lastFailure,
                 )
             }
         }
