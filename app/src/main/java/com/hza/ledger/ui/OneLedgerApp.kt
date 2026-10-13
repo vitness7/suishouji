@@ -95,6 +95,7 @@ import com.hza.ledger.ui.screens.AutoDetectSetupScreen
 import com.hza.ledger.ui.screens.AutoDetectDiagnosticsScreen
 import com.hza.ledger.ui.screens.PendingScreen
 import com.hza.ledger.ui.screens.SettingsScreen
+import com.hza.ledger.autodetect.ListenerRecovery
 import com.hza.ledger.autodetect.PendingNotifier
 import com.hza.ledger.autodetect.isNotificationListenerEnabled
 import com.hza.ledger.autodetect.isSmsPermissionGranted
@@ -170,6 +171,16 @@ fun OneLedgerApp(
             destination = Destination.LEDGER
             ledgerPage = LedgerPage.PENDING
         }
+    }
+
+    // 打开应用时若发现监听服务已停止，自动尝试恢复。
+    //
+    // 用户对「失灵了得去系统设置里关掉再开启」的评价是「太麻烦」——
+    // 手动操作本身就是负担。既然系统支持重绑，就不该把这件事交给用户。
+    // 内部有限流（1 小时一次）且只在「曾正常、现在停了」时触发，
+    // 不会影响正常工作的服务。
+    LaunchedEffect(Unit) {
+        ListenerRecovery.autoRecoverIfNeeded(context)
     }
 
     // 识别出候选时发送系统提醒

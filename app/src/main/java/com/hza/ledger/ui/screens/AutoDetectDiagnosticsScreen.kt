@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
+import com.hza.ledger.autodetect.ListenerRecovery
 import com.hza.ledger.autodetect.AutoDetectDiagnostics
 import com.hza.ledger.autodetect.ListenerHealth
 import com.hza.ledger.autodetect.NotificationDiagnostics
@@ -223,6 +225,7 @@ private fun NotifyPipelineCard(refreshKey: Int) {
     val health = remember(refreshKey) { listenerHealth() }
     val context = LocalContext.current
     var testResult by remember { mutableStateOf<String?>(null) }
+    var rebindResult by remember { mutableStateOf<String?>(null) }
 
     val stamp = remember(diag.lastSuccessAt) {
         if (diag.lastSuccessAt > 0L) {
@@ -287,6 +290,30 @@ private fun NotifyPipelineCard(refreshKey: Int) {
             }
 
             Spacer(Modifier.height(12.dp))
+
+            // ---- 主动恢复 ----
+            // 健康异常时优先给恢复入口：这是用户最需要的动作。
+            // requestRebind 让应用自己重启监听服务，不必去系统设置里
+            // 「关掉再开启」—— 对用户来说那要翻好几层菜单。
+            if (health.needsAttention) {
+                DiagnosticActionButton(
+                    text = "一键重启监听服务",
+                    highlighted = true,
+                    onClick = {
+                        rebindResult = ListenerRecovery.requestRebind(context)
+                            ?: "已请求系统重新绑定，稍等几秒后下拉刷新查看状态"
+                    },
+                )
+                rebindResult?.let { result ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        result,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+            }
 
             // ---- 主动测试 ----
             DiagnosticActionButton(
@@ -472,13 +499,31 @@ private fun DiagnosticRow(entry: RecentNotification) {
     }
 }
 
-/** 诊断页的操作按钮，风格与整体保持一致。 */
+/**
+ * 诊断页的操作按钮。
+ *
+ * @param highlighted 用于恢复类操作 —— 需要用户在异常时一眼看到，
+ *   用实心主色按钮与普通的描边按钮区分开
+ */
 @Composable
-private fun DiagnosticActionButton(text: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(text)
+private fun DiagnosticActionButton(
+    text: String,
+    highlighted: Boolean = false,
+    onClick: () -> Unit,
+) {
+    if (highlighted) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(text)
+        }
     }
 }
