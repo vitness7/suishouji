@@ -643,6 +643,12 @@ private fun LedgerDestination(
     var budgetMonthStart by rememberSaveable {
         mutableLongStateOf(MonthWindow.current(nowMillis).start)
     }
+
+    // 记录二级页面的来源，让「返回」回到用户真正来的地方。
+    // ⚠️ 早先这两个页面的 onBack 是写死的 ——
+    // 从设置页进去，返回却跳到待确认页甚至别的页面，用户会迷失方向。
+    var autoSetupFrom by remember { mutableStateOf(LedgerPage.PENDING) }
+    var diagnosticsFrom by remember { mutableStateOf(LedgerPage.AUTO_SETUP) }
     AnimatedContent(
         targetState = ledgerPage,
         transitionSpec = {
@@ -702,23 +708,36 @@ private fun LedgerDestination(
                 onConfirmEdited = onConfirmPendingEdited,
                 onDiscard = onDiscardPending,
                 onDiscardAll = onDiscardAllPending,
-                onOpenSetup = { onLedgerPageChanged(LedgerPage.AUTO_SETUP) },
+                onOpenSetup = {
+                    autoSetupFrom = LedgerPage.PENDING
+                    onLedgerPageChanged(LedgerPage.AUTO_SETUP)
+                },
             )
             LedgerPage.AUTO_SETUP -> AutoDetectSetupScreen(
                 notificationEnabled = isNotificationListenerEnabled(),
                 smsGranted = isSmsPermissionGranted(),
-                onBack = { onLedgerPageChanged(LedgerPage.PENDING) },
-                onOpenDiagnostics = { onLedgerPageChanged(LedgerPage.DIAGNOSTICS) },
+                onBack = { onLedgerPageChanged(autoSetupFrom) },
+                onOpenDiagnostics = {
+                    diagnosticsFrom = LedgerPage.AUTO_SETUP
+                    onLedgerPageChanged(LedgerPage.DIAGNOSTICS)
+                },
                 onOpenSettings = { onLedgerPageChanged(LedgerPage.SETTINGS) },
             )
             LedgerPage.DIAGNOSTICS -> AutoDetectDiagnosticsScreen(
                 notificationEnabled = isNotificationListenerEnabled(),
                 smsGranted = isSmsPermissionGranted(),
-                onBack = { onLedgerPageChanged(LedgerPage.AUTO_SETUP) },
+                onBack = { onLedgerPageChanged(diagnosticsFrom) },
             )
             LedgerPage.SETTINGS -> SettingsScreen(
                 onBack = { onLedgerPageChanged(LedgerPage.OVERVIEW) },
-                onOpenDiagnostics = { onLedgerPageChanged(LedgerPage.DIAGNOSTICS) },
+                onOpenDiagnostics = {
+                    diagnosticsFrom = LedgerPage.SETTINGS
+                    onLedgerPageChanged(LedgerPage.DIAGNOSTICS)
+                },
+                onOpenAutoDetectSetup = {
+                    autoSetupFrom = LedgerPage.SETTINGS
+                    onLedgerPageChanged(LedgerPage.AUTO_SETUP)
+                },
             )
         }
     }

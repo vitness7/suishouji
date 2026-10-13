@@ -78,6 +78,8 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     onBack: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    /** 打开「开启与稳定性设置」页：通知使用权、短信权限、电池优化白名单等。 */
+    onOpenAutoDetectSetup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -361,6 +363,28 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     PrimaryButton(text = "打开自检诊断", onClick = onOpenDiagnostics)
+                }
+            }
+
+            // ⚠️ 这个入口以前是缺失的。
+            // 「辅助设置」页原先只能从待确认列表进入 ——
+            // 而待确认为空时那个入口也消失，导致用户根本找不到
+            // 通知使用权、电池优化白名单这些关键设置。
+            OneLedgerCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("开启与稳定性设置", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "通知使用权、短信权限、加入电池优化白名单、自启动与后台运行。\n" +
+                            "识别时灵时不灵、隔几天失灵一次，多半是这里没配全。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "打开开启与稳定性设置",
+                        onClick = onOpenAutoDetectSetup,
+                    )
                 }
             }
 
