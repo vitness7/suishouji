@@ -1,5 +1,21 @@
 package com.hza.ledger.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.input.KeyboardType
+import com.hza.ledger.data.local.AccountEntity
+import com.hza.ledger.data.local.CategoryEntity
+import com.hza.ledger.pending.PendingEdit
+import com.hza.ledger.domain.model.TransactionType
+import com.hza.ledger.pending.describeAmountProblem
+import com.hza.ledger.pending.formatMinorForInput
+import com.hza.ledger.pending.message
+import com.hza.ledger.pending.parseAmountInputToMinor
+import com.hza.ledger.pending.validatePendingEdit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +62,6 @@ import com.hza.ledger.ui.components.CategoryGlyph
 import com.hza.ledger.ui.components.OneLedgerCard
 import com.hza.ledger.ui.components.PressableSurface
 import com.hza.ledger.ui.components.ScreenHeader
-import com.hza.ledger.ui.components.SectionTitle
 import com.hza.ledger.ui.theme.ExpenseCoral
 import com.hza.ledger.ui.theme.IncomeMint
 import com.hza.ledger.ui.theme.SavingsAmber
@@ -64,13 +79,21 @@ import com.hza.ledger.util.formatConfidence
 fun PendingScreen(
     pending: List<PendingTransactionEntity>,
     categoryNames: Map<String, String>,
+    /** 支出分类，供编辑时更换。 */
+    expenseCategories: List<CategoryEntity> = emptyList(),
+    /** 收入分类，供编辑时更换。 */
+    incomeCategories: List<CategoryEntity> = emptyList(),
+    /** 账户列表，供编辑时选择。 */
+    accounts: List<AccountEntity> = emptyList(),
     onConfirm: (PendingTransactionEntity) -> Unit,
+    onConfirmEdited: (PendingEdit) -> Unit = {},
     onDiscard: (PendingTransactionEntity) -> Unit,
     onDiscardAll: () -> Unit,
     onOpenSetup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var preview by remember { mutableStateOf<PendingTransactionEntity?>(null) }
+    // 编辑中的条目。非空即弹出编辑面板。
+    var editing by remember { mutableStateOf<PendingTransactionEntity?>(null) }
 
     Column(
         modifier = modifier
@@ -161,16 +184,23 @@ fun PendingScreen(
                     categoryName = item.suggestedCategoryKey?.let { categoryNames[it] },
                     onConfirm = { onConfirm(item) },
                     onDiscard = { onDiscard(item) },
-                    onPreview = { preview = item },
+                    onPreview = { editing = item },
                 )
             }
         }
     }
 
-    preview?.let { item ->
-        PendingPreviewDialog(
+    editing?.let { item ->
+        PendingEditDialog(
             item = item,
-            onDismiss = { preview = null },
+            expenseCategories = expenseCategories,
+            incomeCategories = incomeCategories,
+            accounts = accounts,
+            onDismiss = { editing = null },
+            onConfirm = { edit ->
+                editing = null
+                onConfirmEdited(edit)
+            },
         )
     }
 }
@@ -303,41 +333,294 @@ private fun PendingCard(
     }
 }
 
+/**
+ * 待确认流水的编辑面板。
+ *
+ * ## 为什么需要它
+ *
+ * 自动识别不可能 100% 准，尤其「这笔是进账还是出账」——
+ * 通知文案里常常没有明确的收付方向词，只能靠渠道和上下文推断。
+ * 早先这个入口的按钮写着「修改」，打开的却是只读详情，
+ * 用户根本改不了，只能把识别错的记录整条忽略掉。
+ *
+ * ## 交互设计
+ *
+ * 字段按类型**动态显示**，避免让用户面对一堆无关选项：
+ * - 支出/收入：类型、金额、分类、账户
+ * - 转账：类型、金额、转出账户、转入账户（转账不归属任何收支科目）
+ *
+ * 切换类型时分类会**自动切换到对应类型的第一个分类** ——
+ * 否则从「支出」改成「收入」后会残留「餐饮」这种支出分类，
+ * 产生「收入 + 餐饮」的脏数据，统计报表会出现无法解释的科目。
+ */
 @Composable
-private fun PendingPreviewDialog(
+private fun PendingEditDialog(
     item: PendingTransactionEntity,
+    expenseCategories: List<CategoryEntity>,
+    incomeCategories: List<CategoryEntity>,
+    accounts: List<AccountEntity>,
     onDismiss: () -> Unit,
+    onConfirm: (PendingEdit) -> Unit,
 ) {
+    var type by remember { mutableStateOf(item.type) }
+    var amountText by remember { mutableStateOf(formatMinorForInput(item.amountMinor)) }
+    var categoryId by remember { mutableStateOf(item.suggestedCategoryKey) }
+    var accountId by remember { mutableStateOf(accounts.firstOrNull()?.id) }
+    var toAccountId by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val isTransfer = type == TransactionType.TRANSFER
+    // 分类随类型切换 —— 收入和支出用的是两套独立分类体系
+    val availableCategories = when (type) {
+        "INCOME" -> incomeCategories
+        TransactionType.TRANSFER -> emptyList()
+        else -> expenseCategories
+    }
+
+    // 类型变化后，若原分类不在新类型的分类表里，自动落到第一个
+    LaunchedEffect(type) {
+        if (!isTransfer && availableCategories.none { it.id == categoryId }) {
+            categoryId = availableCategories.firstOrNull()?.id
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("识别详情") },
+        title = { Text("修改并确认") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                DetailRow("金额", MoneyFormatter.format(item.amountMinor))
-                DetailRow("方向", if (item.type == "INCOME") "收入" else "支出")
-                DetailRow("渠道", channelLabel(item.channel))
-                DetailRow("商户", item.merchant.ifBlank { "未知" })
-                DetailRow("可信度", formatConfidence(item.confidence))
-                Spacer(Modifier.height(4.dp))
-                SectionTitle("原始文本")
-                Text(
-                    item.rawText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Column(
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                // ---- 类型 ----
+                EditFieldLabel("类型")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TypeChip("支出", type == "EXPENSE", ExpenseCoral) { type = "EXPENSE" }
+                    TypeChip("收入", type == "INCOME", IncomeMint) { type = "INCOME" }
+                    TypeChip("转账", isTransfer, MaterialTheme.colorScheme.primary) {
+                        type = TransactionType.TRANSFER
+                    }
+                }
+
+                // ---- 金额 ----
+                EditFieldLabel("金额")
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = {
+                        amountText = it
+                        error = null
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    prefix = { Text("¥") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = error != null,
                 )
+
+                // ---- 分类（转账不需要）----
+                if (!isTransfer) {
+                    EditFieldLabel("分类")
+                    if (availableCategories.isEmpty()) {
+                        Text(
+                            "当前账本还没有${if (type == "INCOME") "收入" else "支出"}分类",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    } else {
+                        PickerRow(
+                            options = availableCategories.map { it.id to it.name },
+                            selectedId = categoryId,
+                            onSelect = {
+                                categoryId = it
+                                error = null
+                            },
+                        )
+                    }
+                }
+
+                // ---- 账户 ----
+                EditFieldLabel(if (isTransfer) "转出账户" else "账户")
+                if (accounts.isEmpty()) {
+                    Text(
+                        "当前账本还没有账户，请先到资产页添加",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    PickerRow(
+                        options = accounts.map { it.id to it.name },
+                        selectedId = accountId,
+                        onSelect = {
+                            accountId = it
+                            error = null
+                        },
+                    )
+                }
+
+                // ---- 转入账户（仅转账）----
+                if (isTransfer) {
+                    EditFieldLabel("转入账户")
+                    PickerRow(
+                        options = accounts.map { it.id to it.name },
+                        selectedId = toAccountId,
+                        onSelect = {
+                            toAccountId = it
+                            error = null
+                        },
+                    )
+                }
+
+                // ---- 识别依据（保留原文，便于判断该怎么改）----
+                if (item.rawText.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "识别原文",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        item.rawText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                error?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("知道了") }
+            TextButton(
+                onClick = {
+                    val minor = parseAmountInputToMinor(amountText)
+                    if (minor == null) {
+                        error = describeAmountProblem(amountText)?.message() ?: "金额格式不正确"
+                        return@TextButton
+                    }
+                    val problem = validatePendingEdit(
+                        type = type,
+                        amountMinor = minor,
+                        accountId = accountId,
+                        toAccountId = toAccountId,
+                        categoryId = categoryId,
+                    )
+                    if (problem != null) {
+                        error = problem.message()
+                        return@TextButton
+                    }
+                    onConfirm(
+                        PendingEdit(
+                            pendingId = item.id,
+                            type = type,
+                            amountMinor = minor,
+                            categoryId = if (isTransfer) null else categoryId,
+                            accountId = accountId.orEmpty(),
+                            toAccountId = if (isTransfer) toAccountId else null,
+                            merchant = item.merchant,
+                        ),
+                    )
+                },
+            ) {
+                Text("保存并入账")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+private fun EditFieldLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** 类型选择按钮。 */
+@Composable
+private fun TypeChip(
+    text: String,
+    selected: Boolean,
+    accent: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit,
+) {
+    PressableSurface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Box(
+            Modifier
+                .height(38.dp)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            )
+        }
+    }
+}
+
+/**
+ * 横向可滚动的单选行。
+ *
+ * 用 chips 而不是下拉菜单：选中状态一眼可见，
+ * 分类与账户数量都不多，横向滚动足够容纳。
+ */
+@Composable
+private fun PickerRow(
+    options: List<Pair<String, String>>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (id, name) ->
+            val selected = id == selectedId
+            PressableSurface(
+                onClick = { onSelect(id) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+            ) {
+                Box(
+                    Modifier
+                        .height(36.dp)
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    )
+                }
+            }
+        }
     }
 }
 

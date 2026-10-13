@@ -71,6 +71,17 @@ class AutoDetectRepository(
      * 确认候选并写入正式流水。
      *
      * 分类与账户由调用方（UI 层）给出——识别只是给建议，最终由用户决定。
+     *
+     * ## 为什么要在这里再校验一次
+     *
+     * UI 层已经校验过（`validatePendingEdit`），但**不能只靠 UI**：
+     * 识别结果允许用户改成任意类型与分类，一旦出现
+     * 「收入 + 餐饮分类」这种错配，统计报表里会冒出无法解释的科目，
+     * 而且是静默写入、事后极难排查。
+     *
+     * 这与 [OfflineLedgerRepository.validateReferences] 的约束保持一致 ——
+     * 两条写入路径必须用同一套规则，否则手工记账校验、自动记账不校验，
+     * 等于留了个后门。
      */
     suspend fun confirm(
         bookId: String,
@@ -82,16 +93,33 @@ class AutoDetectRepository(
         merchant: String,
         note: String,
         occurredAt: Long,
+        /** 转账时必填：转入账户。 */
+        toAccountId: String? = null,
     ) {
+        require(dao.accountExists(bookId, accountId)) { "账户不属于当前账本" }
+
+        if (type == TransactionType.TRANSFER) {
+            val target = toAccountId
+            require(!target.isNullOrBlank()) { "转账必须指定转入账户" }
+            require(target != accountId) { "转出与转入不能是同一个账户" }
+            require(dao.accountExists(bookId, target)) { "转入账户不属于当前账本" }
+        } else {
+            val category = categoryId
+            require(!category.isNullOrBlank()) { "请先选择分类" }
+            // ⚠️ 这一条校验「分类类型与交易类型是否匹配」，
+            // 是防止「收入 + 餐饮」错配的关键
+            require(dao.categoryExists(bookId, category, type)) { "分类与收支类型不匹配" }
+        }
+
         val now = System.currentTimeMillis()
         val transaction = TransactionEntity(
             id = "txn-${UUID.randomUUID()}",
             bookId = bookId,
             type = type,
             amountMinor = amountMinor,
-            categoryId = categoryId,
+            categoryId = if (type == TransactionType.TRANSFER) null else categoryId,
             accountId = accountId,
-            toAccountId = null,
+            toAccountId = if (type == TransactionType.TRANSFER) toAccountId else null,
             merchant = merchant,
             note = note,
             occurredAt = occurredAt,

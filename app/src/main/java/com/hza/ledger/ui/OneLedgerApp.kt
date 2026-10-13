@@ -231,6 +231,16 @@ fun OneLedgerApp(
                 )
             }
         },
+        onConfirmPendingEdited = { edit ->
+            viewModel.confirmPendingEdited(edit)
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "已按修改后的内容记入账本",
+                    duration = SnackbarDuration.Short,
+                )
+            }
+        },
         onDiscardPending = { viewModel.discardPending(it) },
         onDiscardAllPending = {
             viewModel.discardAllPending()
@@ -423,6 +433,7 @@ internal fun OneLedgerFrame(
     onTransactionClick: (String) -> Unit = {},
     onBudgetSaved: (MonthWindow, String?, Long) -> Unit = { _, _, _ -> },
     onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
+    onConfirmPendingEdited: (com.hza.ledger.pending.PendingEdit) -> Unit = {},
     onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit = {},
     onDiscardAllPending: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
@@ -479,6 +490,7 @@ internal fun OneLedgerFrame(
                             onTransactionClick = onTransactionClick,
                             onBudgetSaved = onBudgetSaved,
                             onConfirmPending = onConfirmPending,
+                            onConfirmPendingEdited = onConfirmPendingEdited,
                             onDiscardPending = onDiscardPending,
                             onDiscardAllPending = onDiscardAllPending,
                             onOpenSettings = onOpenSettings,
@@ -604,6 +616,7 @@ private fun LedgerDestination(
     onTransactionClick: (String) -> Unit,
     onBudgetSaved: (MonthWindow, String?, Long) -> Unit,
     onConfirmPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
+    onConfirmPendingEdited: (com.hza.ledger.pending.PendingEdit) -> Unit,
     onDiscardPending: (com.hza.ledger.data.local.PendingTransactionEntity) -> Unit,
     onDiscardAllPending: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -668,7 +681,12 @@ private fun LedgerDestination(
                 pending = state.pendingTransactions,
                 categoryNames = (state.expenseCategories + state.incomeCategories)
                     .associate { it.id to it.name },
+                // 编辑时需要按类型切换分类，所以两种分类都要传
+                expenseCategories = state.expenseCategories,
+                incomeCategories = state.incomeCategories,
+                accounts = state.accounts,
                 onConfirm = onConfirmPending,
+                onConfirmEdited = onConfirmPendingEdited,
                 onDiscard = onDiscardPending,
                 onDiscardAll = onDiscardAllPending,
                 onOpenSetup = { onLedgerPageChanged(LedgerPage.AUTO_SETUP) },

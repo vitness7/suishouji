@@ -14,6 +14,7 @@ import com.hza.ledger.data.repository.AutoDetectRepository
 import com.hza.ledger.data.repository.LedgerRepository
 import com.hza.ledger.domain.model.NewTransaction
 import com.hza.ledger.domain.model.TransactionType
+import com.hza.ledger.pending.PendingEdit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -131,6 +132,41 @@ class OneLedgerViewModel(
                 note = "",
                 occurredAt = pending.occurredAt,
             )
+        }
+    }
+
+    /**
+     * 按用户手工修正后的内容确认入账。
+     *
+     * 与 [confirmPending] 的区别：这里**完全采用用户给出的值**，
+     * 不做任何自动推断 —— 用户既然动手改了，就该以他的选择为准。
+     *
+     * 时间仍取自原候选记录：用户改的是金额与类型，
+     * 交易发生时间应该保持识别到的那个时刻。
+     */
+    fun confirmPendingEdited(edit: PendingEdit) {
+        viewModelScope.launch {
+            val bookId = repository.activeBookId.value
+            if (bookId.isBlank()) return@launch
+
+            val original = uiState.value.pendingTransactions
+                .find { it.id == edit.pendingId }
+                ?: return@launch
+
+            runCatching {
+                autoDetectRepository.confirm(
+                    bookId = bookId,
+                    pendingId = edit.pendingId,
+                    categoryId = edit.categoryId,
+                    accountId = edit.accountId,
+                    type = edit.type,
+                    amountMinor = edit.amountMinor,
+                    merchant = edit.merchant,
+                    note = "",
+                    occurredAt = original.occurredAt,
+                    toAccountId = edit.toAccountId,
+                )
+            }
         }
     }
 
