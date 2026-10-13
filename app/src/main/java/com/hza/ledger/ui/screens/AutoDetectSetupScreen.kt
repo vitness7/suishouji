@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.hza.ledger.ui.components.OneLedgerCard
 import com.hza.ledger.ui.components.PressableSurface
 import com.hza.ledger.ui.components.ScreenHeader
+import com.hza.ledger.ui.theme.ExpenseCoral
 import com.hza.ledger.ui.theme.IncomeMint
 import com.hza.ledger.ui.theme.SavingsAmber
 
@@ -120,11 +121,44 @@ fun AutoDetectSetupScreen(
                     Text("辅助设置（vivo / OPPO 等建议开启）", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "这些不是通知使用权的替代品，但不开会导致识别时灵时不灵",
+                        "⚠️ 不配置这些，识别会「用几天就失灵」，需要反复重新授权。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ExpenseCoral,
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    // 电池优化白名单是标准 API，效果最直接，做成按钮
+                    PressableSurface(
+                        onClick = { requestIgnoreBatteryOptimization(context) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(42.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "加入电池优化白名单",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "这是最容易被忽略、也最影响稳定性的一项。系统会定期清理后台，\n" +
+                            "把本应用加入白名单后，监听服务才不会被连带杀掉。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(8.dp))
+
+                    Spacer(Modifier.height(14.dp))
+                    Text("另外还需要手动开这几项：", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(6.dp))
                     Text(
                         "· 应用详情页「设备管理」里的「自启动」和「关联启动」都打开\n" +
                             "· 设置 → 电池 → 后台耗电管理 → 随手记 → 选「允许后台高耗电」\n" +
@@ -134,6 +168,22 @@ fun AutoDetectSetupScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    PressableSurface(
+                        onClick = { openAppSettings(context) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(42.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("打开应用设置页", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
             }
 
@@ -314,6 +364,36 @@ private fun openNotificationSettings(context: Context) {
 /** 跳转到本应用详情页，用户可在其中授予短信权限。 */
 private fun openAppSettings(context: Context) {
     runCatching { context.startActivity(appDetailsIntent(context)) }
+}
+
+/**
+ * 申请加入电池优化白名单。
+ *
+ * ## 为什么这一项最重要
+ *
+ * 国产 ROM 的后台清理策略是「监听服务反复被静默杀掉」的根因。
+ * 加入白名单后系统不再定期清理本应用，服务才能长期存活 ——
+ * 否则用户会遇到「关掉再开能用几天，然后又失灵」的循环。
+ *
+ * ## 兼容处理
+ *
+ * `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` 在部分 ROM 上被阉割，
+ * 或者厂商改了弹窗行为。失败时逐级降级：
+ * 1. 直接申请弹窗（AOSP 标准，最省事）
+ * 2. 退到电池优化列表页，让用户手动找到本应用勾选
+ * 3. 再退到应用详情页，用户至少知道下一步去哪
+ */
+@android.annotation.SuppressLint("BatteryLife")
+private fun requestIgnoreBatteryOptimization(context: Context) {
+    val direct = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+        data = Uri.parse("package:${context.packageName}")
+    }
+    runCatching { context.startActivity(direct) }
+        .onFailure {
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }.onFailure { openAppSettings(context) }
+        }
 }
 
 private fun appDetailsIntent(context: Context): Intent =

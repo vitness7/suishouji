@@ -662,6 +662,8 @@ private fun LedgerDestination(
                 onTransactionClick = onTransactionClick,
                 onPendingClick = { onLedgerPageChanged(LedgerPage.PENDING) },
                 onSettingsClick = { onLedgerPageChanged(LedgerPage.SETTINGS) },
+                // 主页的异常提示卡跳这里，让用户立刻看到原因与恢复方法
+                onDiagnosticsClick = onOpenDiagnostics,
             )
             LedgerPage.BUDGET -> BudgetDetailScreen(
                 state = state,

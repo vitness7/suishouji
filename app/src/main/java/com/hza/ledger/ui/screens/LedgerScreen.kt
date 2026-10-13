@@ -1,5 +1,6 @@
 package com.hza.ledger.ui.screens
 
+import com.hza.ledger.autodetect.listenerHealth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -85,6 +87,7 @@ fun LedgerScreen(
     onCalendarClick: () -> Unit = {},
     onPendingClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onDiagnosticsClick: () -> Unit = {},
     onTransactionClick: (String) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
@@ -202,6 +205,18 @@ fun LedgerScreen(
                 remainingDays = monthWindow.remainingDayCount(nowMillis),
                 onClick = { onBudgetClick(monthWindow) },
             )
+        }
+
+        // 识别服务异常时主动提示。
+        //
+        // ⚠️ 为什么放在主页而不是只放在设置页：
+        // 国产 ROM 会静默杀掉监听服务，而权限开关仍显示「已开启」。
+        // 用户往往要到「付款后没记录」才发现，那时已经漏了好几笔。
+        // 放在首页最显眼处，打开应用就知道该去修。
+        if (listenerHealth().needsAttention) {
+            item {
+                AutoDetectWarningCard(onClick = onDiagnosticsClick)
+            }
         }
 
         if (state.pendingTransactions.isNotEmpty()) {
@@ -484,6 +499,67 @@ private fun PendingEntryCard(count: Int, onClick: () -> Unit) {
                     )
                     Text(
                         "识别到自动记账的记录，确认后入账",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 识别服务异常提示卡。
+ *
+ * 只在真的需要处理时出现（服务疑似停止 / 权限未开），
+ * 刚安装还没触发过通知的情况不提示 —— 那不是异常，
+ * 弹出来只会让新用户困惑。
+ */
+@Composable
+private fun AutoDetectWarningCard(onClick: () -> Unit) {
+    OneLedgerCard(Modifier.fillMaxWidth()) {
+        PressableSurface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            color = ExpenseCoral.copy(alpha = 0.10f),
+            modifier = Modifier.padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .background(ExpenseCoral.copy(alpha = 0.18f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = ExpenseCoral,
+                    )
+                }
+                Column(
+                    Modifier
+                        .padding(start = 12.dp)
+                        .weight(1f),
+                ) {
+                    Text(
+                        "自动识别可能已停止",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = ExpenseCoral,
+                    )
+                    Text(
+                        "点此查看原因与恢复方法，别等到付款后发现漏记",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
